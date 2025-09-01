@@ -1,0 +1,38 @@
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  background: #0c0c0c;
+  color: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.center {
+  text-align: center;
+}
+.title {
+  font-size: 2em;
+  margin-bottom: 1em;
+}
+.tap-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1em;
+  margin-bottom: 1em;
+}
+button {
+  padding: 1em;
+  background: #222;
+  color: #0ff;
+  border: 1px solid #0ff;
+  border-radius: 8px;
+  font-size: 1em;
+}
+iframe {
+  width: 90vw;
+  height: 40vh;
+  border: none;
+  background: #111;
+}
