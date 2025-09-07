@@ -2,25 +2,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pit Boy Mobile</title>
-    <style>
-        body { font-family: sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; }
-        h1 { text-align: center; }
-        .tap { margin: 10px 0; padding: 20px; background: #222; border-radius: 8px; text-align: center; font-size: 1.2em; }
-        .tap a { color: #0ff; text-decoration: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <title>Tyme Hall</title>
 </head>
 <body>
-    <h1>Pit Boy Interface</h1>
-    <div class="tap"><a href="code/">Code Core</a></div>
-    <div class="tap"><a href="scrolls/">Scroll Library</a></div>
-    <div class="tap"><a href="controls/">Agent Controls</a></div>
-    <div class="tap"><a href="logs/">Runtime Logs</a></div>
-    <div class="tap"><a href="ports/">Ports & IO</a></div>
-    <div class="tap"><a href="skins/">UI Skins</a></div>
-    <div class="tap"><a href="tones/">HTFL Tones</a></div>
-    <div class="tap"><a href="net/">Sovereign Mesh</a></div>
+  <div id="core" class="center">
+    <h1 class="title">⧈ Tyme Hall ⧈</h1>
+    <div class="tap-grid">
+      <button onclick="openModule('lab')">🧪 Lab</button>
+      <button onclick="openModule('codex')">📜 Codex</button>
+      <button onclick="openModule('signals')">📡 Signals</button>
+      <button onclick="openModule('avots')">🎙️ AVOTs</button>
+      <button onclick="openModule('archives')">📁 Archives</button>
+      <button onclick="openModule('glyphs')">💠 Glyphs</button>
+      <button onclick="openModule('portals')">🌐 Portals</button>
+      <button onclick="openModule('settings')">⚙️ Settings</button>
+    </div>
+    <iframe id="module-view" src="scrolls/welcome.html"></iframe>
+  </div>
+  <script src="main.js"></script>
 </body>
 </html>
