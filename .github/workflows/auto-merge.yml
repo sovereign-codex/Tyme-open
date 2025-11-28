@@ -1,0 +1,59 @@
+name: Guardian Auto Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  guardian_check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Parse PR body for Guardian coherence score
+      id: parse
+      run: |
+        echo "BODY<<EOF" >> $GITHUB_OUTPUT
+        echo "${{ github.event.pull_request.body }}" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        SCORE=$(echo "${{ github.event.pull_request.body }}" | grep -o "coherence_score: [0-9.]*" | awk '{print $2}')
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+
+    - name: Validate score exists
+      if: steps.parse.outputs.score == ''
+      run: exit 1
+
+    - name: Validate score >= 0.8
+      if: ${{ steps.parse.outputs.score < 0.8 }}
+      run: exit 1
+
+    - name: Verify allowed paths only
+      run: |
+        while read -r file; do
+          if [[ "$file" != docs/* && "$file" != sovereign_architecture/* ]]; then
+            echo "Unauthorized file change detected: $file"
+            exit 1
+          fi
+        done <<< "$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')"
+
+    - name: Add guardian-approved label
+      uses: actions-ecosystem/action-add-labels@v1
+      with:
+        labels: guardian-approved
+
+    - name: Enable auto-merge
+      run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
