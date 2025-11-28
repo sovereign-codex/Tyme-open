@@ -11,6 +11,7 @@ from backend.drift_monitor import DriftMonitor
 from backend.rhythm import RhythmEngine
 from backend.epochs import EpochEngine
 from backend.diagram_generator import DiagramGenerator
+from backend.topology import TopologyExtractor
 
 
 class AutonomousEvolution:
@@ -157,6 +158,13 @@ class AutonomousEvolution:
         diagram = DiagramGenerator()
         art_paths = diagram.generate(version, spec)
 
+        # -------------------------------------------
+        # C19: Extract Lattice Topology
+        # -------------------------------------------
+        topo = TopologyExtractor()
+        topo_path = topo.extract(version, spec)
+        output["topology"] = topo_path
+
         # ------------------------------------------------------------
         # 5. Archivist
         # ------------------------------------------------------------
@@ -167,6 +175,7 @@ class AutonomousEvolution:
                 "markdown": markdown,
                 "filename": filename,
                 "visuals": art_paths,
+                "topology": topo_path,
             },
             created_by="autonomous"
         )

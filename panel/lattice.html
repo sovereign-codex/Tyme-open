@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lattice Graph Viewer</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="/panel/style.css">
+    <style>
+        body { margin:0; overflow:hidden; background:#111; }
+        #graph { width:100vw; height:100vh; }
+        text { fill: #fff; font-size: 12px; }
+        circle { stroke:#fff; stroke-width:1px; }
+    </style>
+</head>
+<body>
+
+<div id="graph"></div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const version = params.get("version");
+
+fetch(`/visuals/lattice/topology-v${version}.json`)
+  .then(r => r.json())
+  .then(data => renderGraph(data));
+
+function renderGraph(data) {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const svg = d3.select("#graph").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    const simulation = d3.forceSimulation(data.nodes)
+        .force("charge", d3.forceManyBody().strength(-300))
+        .force("center", d3.forceCenter(width/2, height/2))
+        .force("link", d3.forceLink(data.edges).id(d => d.id).distance(120))
+        .on("tick", ticked);
+
+    const link = svg.selectAll("line")
+        .data(data.edges)
+        .enter().append("line")
+        .attr("stroke", "#555")
+        .attr("stroke-width", 1);
+
+    const node = svg.selectAll("circle")
+        .data(data.nodes)
+        .enter().append("circle")
+        .attr("r", 14)
+        .attr("fill", d => {
+            if (d.type === "root") return "#6dd5fa";
+            if (d.type === "layer") return "#b2f7ef";
+            return "#ffdfba";
+        })
+        .call(drag(simulation));
+
+    const label = svg.selectAll("text")
+        .data(data.nodes)
+        .enter().append("text")
+        .text(d => d.label || d.id);
+
+    function ticked() {
+        link.attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+
+        node.attr("cx", d => d.x)
+            .attr("cy", d => d.y);
+
+        label.attr("x", d => d.x + 16)
+             .attr("y", d => d.y + 4);
+    }
+
+    function drag(sim) {
+        function dragstarted(e) {
+            if (!e.active) sim.alphaTarget(0.3).restart();
+            e.subject.fx = e.subject.x;
+            e.subject.fy = e.subject.y;
+        }
+        function dragged(e) {
+            e.subject.fx = e.x;
+            e.subject.fy = e.y;
+        }
+        function dragended(e) {
+            if (!e.active) sim.alphaTarget(0);
+            e.subject.fx = null;
+            e.subject.fy = null;
+        }
+        return d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended);
+    }
+}
+</script>
+
+</body>
+</html>
