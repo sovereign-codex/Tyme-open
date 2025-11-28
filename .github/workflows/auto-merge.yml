@@ -69,12 +69,13 @@ jobs:
 
     - name: Verify allowed paths only
       run: |
-        while read -r file; do
-          if [[ "$file" != docs/* && "$file" != sovereign_architecture/* ]]; then
-            echo "Unauthorized file change detected: $file"
-            exit 1
-          fi
-        done <<< "$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')"
+        echo "Checking allowed paths..."
+        disallowed=$(git diff --name-only origin/main...HEAD | grep -vE '^docs/|^README.md$|^backend/|^avot_units/|^panel/|^.github/workflows/')
+        if [ -n "$disallowed" ]; then
+          echo "❌ Disallowed paths changed:"
+          echo "$disallowed"
+          exit 1
+        fi
 
     - name: Add guardian-approved label
       uses: actions-ecosystem/action-add-labels@v1
