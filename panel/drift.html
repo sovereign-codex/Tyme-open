@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Drift & Stability</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #0b0d12;
+            color: #eef;
+            font-family: Arial, sans-serif;
+            padding: 28px;
+        }
+        h1 {
+            color: #a1d6ff;
+        }
+        .container {
+            width: 90%;
+            max-width: 1100px;
+            margin: auto;
+        }
+        canvas {
+            margin-top: 40px;
+            background: #11141a;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .index-box {
+            background: #1b212c;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            border: 1px solid #2b323e;
+        }
+        .index-value {
+            font-size: 2em;
+            color: #8fe5ff;
+            font-weight: bold;
+        }
+        .drift-block {
+            background: #311;
+            padding: 15px;
+            margin-top: 20px;
+            border-left: 4px solid #ff7b7b;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Sovereign Architecture — Drift & Stability</h1>
+    <p>This dashboard visualizes long-term coherence trends, smoothed score curves, stability index, and drift anomalies.</p>
+
+    <div class="index-box">
+        <strong>Stability Index:</strong>
+        <div id="stability" class="index-value">Loading...</div>
+    </div>
+
+    <h2>Smoothed Score Evolution</h2>
+    <canvas id="driftChart"></canvas>
+
+    <h2>Detected Drift Anomalies</h2>
+    <div id="driftFlags"></div>
+</div>
+
+<script>
+async function loadDrift() {
+    const res = await fetch("/governance/drift.json");
+    const data = await res.json();
+
+    document.getElementById("stability").innerText = data.stability_index ?? "N/A";
+
+    const versions = data.entries.map(e => e.version);
+    const guardianSmoothed = data.guardian_smoothed;
+    const convergenceSmoothed = data.convergence_smoothed;
+
+    const ctx = document.getElementById("driftChart").getContext("2d");
+
+    new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: versions,
+            datasets: [
+                {
+                    label: "Guardian (Smoothed)",
+                    data: guardianSmoothed,
+                    borderColor: "#3cc7ff",
+                    backgroundColor: "rgba(60,199,255,0.2)",
+                    borderWidth: 2,
+                    tension: 0.3,
+                },
+                {
+                    label: "Convergence (Smoothed)",
+                    data: convergenceSmoothed,
+                    borderColor: "#ff9494",
+                    backgroundColor: "rgba(255,148,148,0.2)",
+                    borderWidth: 2,
+                    tension: 0.3,
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: {
+                    min: 0, max: 1
+                }
+            },
+            plugins: {
+                legend: { labels: { color: "#eef" } }
+            }
+        }
+    });
+
+    // Render drift anomalies
+    const driftFlagsDiv = document.getElementById("driftFlags");
+
+    if (data.drift_flags.length === 0) {
+        driftFlagsDiv.innerHTML = "<p>No drift detected.</p>";
+        return;
+    }
+
+    data.drift_flags.forEach(flag => {
+        const block = document.createElement("div");
+        block.className = "drift-block";
+        block.innerHTML = `
+            <strong>Version ${flag.version}</strong><br>
+            Guardian drop: ${flag.guardian_drop}<br>
+            Convergence drop: ${flag.convergence_drop}<br>
+        `;
+        driftFlagsDiv.appendChild(block);
+    });
+}
+
+loadDrift();
+</script>
+
+</body>
+</html>
