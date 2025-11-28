@@ -1,0 +1,1 @@
+"""AVOT Core init"""
