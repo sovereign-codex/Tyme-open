@@ -13,6 +13,7 @@ from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
 from backend.drift_monitor import DriftMonitor
 from backend.heatmap_analyzer import HeatmapAnalyzer
+from backend.autonomous import AutonomousEvolution
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -224,3 +225,12 @@ def get_heatmap_data():
     """
     analyzer = HeatmapAnalyzer()
     return analyzer.analyze()
+
+
+@app.post("/autonomous/run")
+def autonomous_run():
+    """
+    Triggers a full predictive evolution cycle.
+    """
+    ae = AutonomousEvolution()
+    return ae.run_cycle()
