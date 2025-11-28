@@ -10,6 +10,7 @@ from backend.github_api import GitHubAPI as GitHubClient
 from backend.drift_monitor import DriftMonitor
 from backend.rhythm import RhythmEngine
 from backend.epochs import EpochEngine
+from backend.diagram_generator import DiagramGenerator
 
 
 class AutonomousEvolution:
@@ -25,6 +26,7 @@ class AutonomousEvolution:
 
     def run_cycle(self) -> Dict[str, Any]:
         engine = AvotEngine()
+        output: Dict[str, Any] = {}
 
         # ------------------------------------------------------------
         # 1. Multi-agent prediction
@@ -50,8 +52,8 @@ class AutonomousEvolution:
                     payload={"base_spec": {}},
                     created_by="autonomous",
                 )
-                output = engine.run(agent, pred_task).output
-                candidates.append(output)
+                candidate_output = engine.run(agent, pred_task).output
+                candidates.append(candidate_output)
 
         # Run selector
         selector_task = engine.create_task(
@@ -149,12 +151,23 @@ class AutonomousEvolution:
             # Success after healing — replace original spec
             spec = healed_spec
 
+        # -------------------------------------------
+        # C18: Generate architecture diagrams
+        # -------------------------------------------
+        diagram = DiagramGenerator()
+        art_paths = diagram.generate(version, spec)
+
         # ------------------------------------------------------------
         # 5. Archivist
         # ------------------------------------------------------------
         archivist_task = engine.create_task(
             name="archive-sovereign-architecture",
-            payload={"version": version, "markdown": markdown, "filename": filename},
+            payload={
+                "version": version,
+                "markdown": markdown,
+                "filename": filename,
+                "visuals": art_paths,
+            },
             created_by="autonomous"
         )
         archived = engine.run("AVOT-archivist", archivist_task).output
@@ -206,13 +219,18 @@ class AutonomousEvolution:
             body=pr_data["pr"]["body"],
         )
 
-        return {
-            "status": "submitted",
-            "version": version,
-            "pr_url": pr_info.get("html_url"),
-            "guardian_score": guardian_score,
-            "convergence_score": convergence_score,
-        }
+        output.update(
+            {
+                "status": "submitted",
+                "version": version,
+                "pr_url": pr_info.get("html_url"),
+                "guardian_score": guardian_score,
+                "convergence_score": convergence_score,
+            }
+        )
+        output["visuals"] = art_paths
+
+        return output
 
     def run_timed(self, duration_seconds: int = 3600):
         """
