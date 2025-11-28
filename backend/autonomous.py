@@ -25,16 +25,31 @@ class AutonomousEvolution:
         engine = AvotEngine()
 
         # ------------------------------------------------------------
-        # 1. Predict Next Architecture Spec
+        # 1. Multi-agent prediction
         # ------------------------------------------------------------
-        predictor_task = engine.create_task(
-            name="predict-next-architecture",
-            payload={},
-            created_by="autonomous"
-        )
-        prediction = engine.run("AVOT-predictor", predictor_task).output
+        candidates = []
 
-        predicted_spec = prediction.get("predicted_spec", {})
+        for agent in [
+            "AVOT-predictor-minimal",
+            "AVOT-predictor-deep",
+            "AVOT-predictor-semantic"
+        ]:
+            pred_task = engine.create_task(
+                name="predict-next-architecture",
+                payload={"base_spec": {}},
+                created_by="autonomous",
+            )
+            output = engine.run(agent, pred_task).output
+            candidates.append(output)
+
+        # Run selector
+        selector_task = engine.create_task(
+            name="select-best-prediction",
+            payload={"candidates": candidates},
+            created_by="autonomous",
+        )
+        selected = engine.run("AVOT-selector", selector_task).output
+        predicted_spec = selected.get("selected_spec") or {}
 
         # ------------------------------------------------------------
         # 2. Fabricate (predictive mode)
