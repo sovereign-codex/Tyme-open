@@ -107,12 +107,47 @@ class AutonomousEvolution:
 
         # Abort early if Convergence rejects
         if not convergence_approved:
-            return {
-                "status": "rejected",
-                "reason": "Convergence did not approve predictive evolution.",
-                "guardian_score": guardian_score,
-                "convergence_score": convergence_score,
-            }
+            # --------------------------------------------------------
+            #  SELF-HEALING PHASE (C17)
+            # --------------------------------------------------------
+            healer_task = engine.create_task(
+                name="heal-rejected-architecture",
+                payload={
+                    "spec": spec,
+                    "guardian_score": guardian_score,
+                    "convergence_score": convergence_score,
+                },
+                created_by="autonomous",
+            )
+            healed = engine.run("AVOT-healer", healer_task).output
+            healed_spec = healed.get("healed_spec", spec)
+
+            # Retry Convergence with healed spec
+            retry_guardian_task = engine.create_task(
+                name="validate-sovereign-architecture",
+                payload={"version": version, "spec": healed_spec, "markdown": ""},
+                created_by="autonomous",
+            )
+            retry_guardian = engine.run("AVOT-guardian", retry_guardian_task).output
+            g2 = retry_guardian.get("coherence_score", guardian_score)
+
+            retry_conv_task = engine.create_task(
+                name="arbitrate-sovereign-architecture",
+                payload={"guardian_score": g2, "spec": healed_spec, "metadata": {}},
+                created_by="autonomous",
+            )
+            retry_conv = engine.run("AVOT-convergence", retry_conv_task).output
+            c2 = retry_conv.get("convergence_score", convergence_score)
+
+            if not retry_conv.get("convergence_approved"):
+                return {
+                    "status": "rejected_after_healing",
+                    "guardian_score": g2,
+                    "convergence_score": c2,
+                }
+
+            # Success after healing — replace original spec
+            spec = healed_spec
 
         # ------------------------------------------------------------
         # 5. Archivist
