@@ -114,6 +114,16 @@ class Fabricator(BaseAVOT):
             spec = predicted_spec  # override with predicted structure
             metadata["prediction_signals"] = signals
 
+        # Optional semantic expansion step
+        if payload.get("semantic_expand", False) and spec:
+            expander_task = AvotTask(
+                name="expand-architecture-semantically",
+                payload={"spec": spec},
+                created_by=task.created_by
+            )
+            expanded = self.engine.run("AVOT-expander", expander_task).output
+            spec = expanded.get("expanded_spec", spec)
+
         summary_text = payload.get("summary") or spec.get("description", "")
         notes = payload.get("fabrication_notes") or payload.get("notes")
 
