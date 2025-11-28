@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Architecture Heatmap</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #0b0d12;
+            color: #eef;
+            font-family: Arial;
+            padding: 28px;
+        }
+        h1 {
+            color: #9fd4ff;
+        }
+        canvas {
+            margin-top: 40px;
+            background: #11141a;
+            border-radius: 12px;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Sovereign Architecture — Evolution Heatmap</h1>
+<p>This heatmap visualizes change intensity across architecture versions.</p>
+
+<canvas id="heatmapChart"></canvas>
+
+<script>
+async function loadHeatmap() {
+    const res = await fetch("/governance/heatmap.json");
+    const data = await res.json();
+
+    const versions = data.versions;
+    const heatmapValues = data.heatmap_values;
+
+    const ctx = document.getElementById("heatmapChart").getContext("2d");
+
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: versions,
+            datasets: [
+                {
+                    label: "Layer Change Intensity",
+                    data: heatmapValues,
+                    backgroundColor: heatmapValues.map(v =>
+                        v === 0
+                            ? "rgba(100, 100, 100, 0.4)"
+                            : v === 1
+                                ? "rgba(80, 200, 255, 0.5)"
+                                : "rgba(255, 80, 80, 0.6)"
+                    ),
+                }
+            ]
+        },
+        options: {
+            plugins: {
+                legend: { labels: { color: "#eef" } },
+            },
+            scales: {
+                x: { ticks: { color: "#eef" }},
+                y: { ticks: { color: "#eef" }}
+            }
+        }
+    });
+}
+
+loadHeatmap();
+</script>
+
+</body>
+</html>
