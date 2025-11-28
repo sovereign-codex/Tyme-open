@@ -11,6 +11,7 @@ from avot_units.archivist import Archivist
 from avot_units.pr_generator import PRGenerator
 from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
+from backend.drift_monitor import DriftMonitor
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -202,3 +203,13 @@ def get_evolution_data():
         "guardian_scores": guardian_scores,
         "convergence_scores": convergence_scores
     }
+
+
+@app.get("/governance/drift.json")
+def get_drift_data():
+    """
+    Provides temporal coherence smoothing, drift detection,
+    stability index, and full score evolution history.
+    """
+    monitor = DriftMonitor()
+    return monitor.analyze()
