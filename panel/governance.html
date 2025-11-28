@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Tyme Hall — Governance Panel</title>
+    <link rel="stylesheet" href="/panel/style.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -31,17 +32,27 @@
     </style>
 </head>
 <body>
-
-<h1>Tyme Hall — Governance Panel</h1>
-
-<div id="summary" class="section">
-    <h2>Latest Governance Summary</h2>
-    <div id="latest"></div>
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
 </div>
 
-<div class="section">
-    <h2>Master Architecture Index</h2>
-    <pre id="index">Loading...</pre>
+<div class="content">
+    <h1>Tyme Hall — Governance Panel</h1>
+
+    <div id="summary" class="section">
+        <h2>Latest Governance Summary</h2>
+        <div id="latest"></div>
+    </div>
+
+    <div class="section">
+        <h2>Master Architecture Index</h2>
+        <pre id="index">Loading...</pre>
+    </div>
 </div>
 
 <script>

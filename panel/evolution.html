@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Tyme Hall — Architecture Evolution</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/panel/style.css">
     <style>
         body {
             background: #0b0d12;
@@ -29,11 +30,22 @@
 </head>
 
 <body>
-<div class="container">
-    <h1>Sovereign Architecture – Evolution Graph</h1>
-    <p>A real-time visualization of Guardian & Convergence Scores across architecture versions.</p>
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
+</div>
 
-    <canvas id="evolutionChart"></canvas>
+<div class="content">
+    <div class="container">
+        <h1>Sovereign Architecture – Evolution Graph</h1>
+        <p>A real-time visualization of Guardian & Convergence Scores across architecture versions.</p>
+
+        <canvas id="evolutionChart"></canvas>
+    </div>
 </div>
 
 <script>
