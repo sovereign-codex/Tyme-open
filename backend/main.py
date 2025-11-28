@@ -52,6 +52,9 @@ def trigger_auto_pr(request: AutoPRRequest):
     archivist_result.output["artifact_path"] = scroll_path
     guardian_score = guardian_result.output.get("coherence_score", 0)
     archivist_result.output["metadata"]["guardian_score"] = guardian_score
+    import time
+    archivist_result.output["metadata"]["agent_id"] = "AVOT-fabricator"
+    archivist_result.output["metadata"]["timestamp"] = str(time.time())
 
     pr_generator = PRGenerator()
     payload = pr_generator.generate(
