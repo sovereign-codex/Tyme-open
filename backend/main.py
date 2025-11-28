@@ -165,3 +165,40 @@ def get_governance_summary():
     return {
         "latest": latest
     }
+
+
+@app.get("/governance/evolution.json")
+def get_evolution_data():
+    """
+    Extracts all versions and their scores from the MAI and returns
+    a JSON structure suitable for plotting the architecture evolution graph.
+    """
+
+    import os, re
+
+    index_path = "docs/MASTER-ARCHITECTURE-INDEX.md"
+
+    versions = []
+    guardian_scores = []
+    convergence_scores = []
+
+    if os.path.exists(index_path):
+        with open(index_path, "r") as f:
+            text = f.read()
+
+        blocks = re.split(r"## Version ", text)
+        for block in blocks[1:]:
+            version_match = re.search(r"v([0-9.]+)", block)
+            guardian_match = re.search(r"Guardian Score:\*\* ([0-9.]+)", block)
+            convergence_match = re.search(r"Convergence Score:\*\* ([0-9.]+)", block)
+
+            if version_match:
+                versions.append(version_match.group(1))
+                guardian_scores.append(float(guardian_match.group(1)) if guardian_match else None)
+                convergence_scores.append(float(convergence_match.group(1)) if convergence_match else None)
+
+    return {
+        "versions": versions,
+        "guardian_scores": guardian_scores,
+        "convergence_scores": convergence_scores
+    }
