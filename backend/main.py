@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from types import SimpleNamespace
 from typing import Optional
 import os
 
@@ -39,12 +40,18 @@ def trigger_auto_pr(request: AutoPRRequest):
 
     guardian = Guardian()
     try:
-        guardian.enforce(scroll)
+        guardian_result = guardian.enforce(scroll)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    if guardian_result is None:
+        guardian_result = SimpleNamespace(output={})
 
     archivist = Archivist()
+    archivist_result = SimpleNamespace(output={"metadata": {}, "artifact_path": None})
     scroll_path = archivist.archive(scroll, title=request.title, directory="docs")
+    archivist_result.output["artifact_path"] = scroll_path
+    guardian_score = guardian_result.output.get("coherence_score", 0)
+    archivist_result.output["metadata"]["guardian_score"] = guardian_score
 
     pr_generator = PRGenerator()
     payload = pr_generator.generate(
