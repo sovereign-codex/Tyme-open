@@ -71,6 +71,7 @@ Generated automatically by **{agent_id}** via the AVOT chain:
 ## 🧭 Governance Summary
 
 - **coherence_score:** {guardian_score}
+- **convergence_score:** {metadata.get("convergence_score", "unknown")}
 - **version:** v{version}
 - **agent_id:** {agent_id}
 - **timestamp:** {timestamp}

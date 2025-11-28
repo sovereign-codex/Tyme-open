@@ -48,6 +48,25 @@ jobs:
           exit 1
         fi
 
+    - name: Validate convergence score exists (skip for infra PRs)
+      id: convergence_check
+      run: |
+        BODY="${{ github.event.pull_request.body }}"
+        if echo "$BODY" | grep -q "convergence_score:"; then
+          echo "no_convergence=false" >> $GITHUB_OUTPUT
+        else
+          echo "no_convergence=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Validate convergence score >= 0.8 (skip unless convergence exists)
+      if: steps.convergence_check.outputs.no_convergence == 'false'
+      run: |
+        SCORE=$(echo "${{ github.event.pull_request.body }}" | grep -o "convergence_score: [0-9.]*" | awk '{print $2}')
+        if (( $(echo "$SCORE < 0.8" | bc -l) )); then
+          echo "Convergence agent rejected this PR."
+          exit 1
+        fi
+
     - name: Verify allowed paths only
       run: |
         while read -r file; do
@@ -63,7 +82,7 @@ jobs:
         labels: guardian-approved
 
     - name: Enable auto-merge
-      if: steps.validate_score.outputs.no_score == 'false'
+      if: steps.validate_score.outputs.no_score == 'false' && steps.convergence_check.outputs.no_convergence == 'false'
       run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
