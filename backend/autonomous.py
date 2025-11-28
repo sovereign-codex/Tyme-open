@@ -41,7 +41,11 @@ class AutonomousEvolution:
         # ------------------------------------------------------------
         fab_task = engine.create_task(
             name="generate-sovereign-architecture",
-            payload={"predict": True, "spec_override": predicted_spec},
+            payload={
+                "predict": True,
+                "semantic_expand": True,
+                "spec_override": predicted_spec
+            },
             created_by="autonomous"
         )
         fabricated = engine.run("AVOT-fabricator", fab_task).output
