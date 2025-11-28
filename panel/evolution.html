@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Architecture Evolution</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #0b0d12;
+            color: #eef;
+            font-family: Arial, sans-serif;
+            padding: 28px;
+        }
+        h1 {
+            color: #a1d6ff;
+        }
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            margin: auto;
+        }
+        canvas {
+            margin-top: 40px;
+            background: #11141a;
+            border-radius: 12px;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Sovereign Architecture – Evolution Graph</h1>
+    <p>A real-time visualization of Guardian & Convergence Scores across architecture versions.</p>
+
+    <canvas id="evolutionChart"></canvas>
+</div>
+
+<script>
+async function loadEvolution() {
+    const res = await fetch("/governance/evolution.json");
+    const data = await res.json();
+
+    const labels = data.versions;
+    const guardianScores = data.guardian_scores;
+    const convergenceScores = data.convergence_scores;
+
+    const ctx = document.getElementById("evolutionChart").getContext("2d");
+    new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "Guardian Score",
+                    data: guardianScores,
+                    borderColor: "#49c6ff",
+                    backgroundColor: "rgba(73,198,255,0.2)",
+                    tension: 0.3,
+                    borderWidth: 2,
+                },
+                {
+                    label: "Convergence Score",
+                    data: convergenceScores,
+                    borderColor: "#ff8e8e",
+                    backgroundColor: "rgba(255,142,142,0.2)",
+                    tension: 0.3,
+                    borderWidth: 2,
+                }
+            ]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 1.0
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: "#eef" }
+                }
+            }
+        }
+    });
+}
+
+loadEvolution();
+</script>
+
+</body>
+</html>
