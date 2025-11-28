@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Tyme Hall — Drift & Stability</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/panel/style.css">
     <style>
         body {
             background: #0b0d12;
@@ -48,20 +49,31 @@
 </head>
 
 <body>
-<div class="container">
-    <h1>Sovereign Architecture — Drift & Stability</h1>
-    <p>This dashboard visualizes long-term coherence trends, smoothed score curves, stability index, and drift anomalies.</p>
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
+</div>
 
-    <div class="index-box">
-        <strong>Stability Index:</strong>
-        <div id="stability" class="index-value">Loading...</div>
+<div class="content">
+    <div class="container">
+        <h1>Sovereign Architecture — Drift & Stability</h1>
+        <p>This dashboard visualizes long-term coherence trends, smoothed score curves, stability index, and drift anomalies.</p>
+
+        <div class="index-box">
+            <strong>Stability Index:</strong>
+            <div id="stability" class="index-value">Loading...</div>
+        </div>
+
+        <h2>Smoothed Score Evolution</h2>
+        <canvas id="driftChart"></canvas>
+
+        <h2>Detected Drift Anomalies</h2>
+        <div id="driftFlags"></div>
     </div>
-
-    <h2>Smoothed Score Evolution</h2>
-    <canvas id="driftChart"></canvas>
-
-    <h2>Detected Drift Anomalies</h2>
-    <div id="driftFlags"></div>
 </div>
 
 <script>
