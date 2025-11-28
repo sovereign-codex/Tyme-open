@@ -12,6 +12,7 @@ from avot_units.pr_generator import PRGenerator
 from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
 from backend.drift_monitor import DriftMonitor
+from backend.epochs import EpochEngine
 from backend.heatmap_analyzer import HeatmapAnalyzer
 from backend.autonomous import AutonomousEvolution
 from backend.rhythm import RhythmEngine
@@ -169,6 +170,15 @@ def get_governance_summary():
     return {
         "latest": latest
     }
+
+
+@app.get("/governance/epoch.json")
+def get_epoch_status():
+    """
+    Returns the current Governance Epoch and its evolution parameters.
+    """
+    e = EpochEngine()
+    return e.get_epoch()
 
 
 @app.get("/governance/evolution.json")

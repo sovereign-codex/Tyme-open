@@ -9,6 +9,7 @@ from avot_core.models import AvotTask
 from backend.github_api import GitHubAPI as GitHubClient
 from backend.drift_monitor import DriftMonitor
 from backend.rhythm import RhythmEngine
+from backend.epochs import EpochEngine
 
 
 class AutonomousEvolution:
@@ -28,20 +29,29 @@ class AutonomousEvolution:
         # ------------------------------------------------------------
         # 1. Multi-agent prediction
         # ------------------------------------------------------------
-        candidates = []
+        # Load epoch parameters
+        epoch_params = EpochEngine().get_epoch()
+        weights = epoch_params["parameters"]["predictor_weights"]
+        agents = [
+            ("AVOT-predictor-minimal", weights.get("minimal", 0)),
+            ("AVOT-predictor-deep", weights.get("deep", 0)),
+            ("AVOT-predictor-semantic", weights.get("semantic", 0)),
+        ]
 
-        for agent in [
-            "AVOT-predictor-minimal",
-            "AVOT-predictor-deep",
-            "AVOT-predictor-semantic"
-        ]:
-            pred_task = engine.create_task(
-                name="predict-next-architecture",
-                payload={"base_spec": {}},
-                created_by="autonomous",
-            )
-            output = engine.run(agent, pred_task).output
-            candidates.append(output)
+        candidates = []
+        for agent, weight in agents:
+            if weight <= 0:
+                continue
+            # repeat predictor roughly proportional to weight
+            repeat = max(1, int(weight * 3))
+            for _ in range(repeat):
+                pred_task = engine.create_task(
+                    name="predict-next-architecture",
+                    payload={"base_spec": {}},
+                    created_by="autonomous",
+                )
+                output = engine.run(agent, pred_task).output
+                candidates.append(output)
 
         # Run selector
         selector_task = engine.create_task(
