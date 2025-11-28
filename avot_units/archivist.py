@@ -16,6 +16,15 @@ class Archivist:
             "",
         ]
 
+        if visuals.get("topology"):
+            visuals_section.extend(
+                [
+                    "## Lattice Graph",
+                    f"[View Interactive Graph](/panel/lattice.html?version={version or 'latest'})",
+                    "",
+                ]
+            )
+
         if not scroll.strip():
             title_line = f"# Sovereign Architecture v{version or 'unknown'}"
             return "\n".join([title_line, *visuals_section, ""])
