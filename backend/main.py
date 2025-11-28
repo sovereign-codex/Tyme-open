@@ -12,6 +12,7 @@ from avot_units.pr_generator import PRGenerator
 from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
 from backend.drift_monitor import DriftMonitor
+from backend.heatmap_analyzer import HeatmapAnalyzer
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -213,3 +214,13 @@ def get_drift_data():
     """
     monitor = DriftMonitor()
     return monitor.analyze()
+
+
+@app.get("/governance/heatmap.json")
+def get_heatmap_data():
+    """
+    Computes layer-change intensity between versions and returns
+    a numeric heatmap for UI visualization.
+    """
+    analyzer = HeatmapAnalyzer()
+    return analyzer.analyze()
