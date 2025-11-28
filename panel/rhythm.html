@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Rhythm Monitor</title>
+    <link rel="stylesheet" href="/panel/style.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
+    <a href="/panel/rhythm.html">Rhythm Monitor</a>
+</div>
+
+<div class="content">
+    <h1>Autonomous Rhythm Monitor</h1>
+    <pre id="data"></pre>
+</div>
+
+<script>
+async function loadRhythm() {
+    const res = await fetch("/governance/rhythm.json");
+    const data = await res.json();
+    document.getElementById("data").textContent = JSON.stringify(data, null, 2);
+}
+loadRhythm();
+</script>
+
+</body>
+</html>

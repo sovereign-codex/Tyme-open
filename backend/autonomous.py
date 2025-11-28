@@ -8,6 +8,7 @@ from avot_core.models import AvotTask
 
 from backend.github_api import GitHubAPI as GitHubClient
 from backend.drift_monitor import DriftMonitor
+from backend.rhythm import RhythmEngine
 
 
 class AutonomousEvolution:
@@ -167,3 +168,31 @@ class AutonomousEvolution:
             "guardian_score": guardian_score,
             "convergence_score": convergence_score,
         }
+
+    def run_timed(self, duration_seconds: int = 3600):
+        """
+        Runs autonomous evolution cycles over a time window,
+        using the RhythmEngine to determine pacing.
+        """
+        rhythm = RhythmEngine()
+
+        end = time.time() + duration_seconds
+
+        cycles = []
+
+        while time.time() < end:
+            pulse = rhythm.get_rhythm()
+
+            cycles.append({
+                "mode": pulse["mode"],
+                "interval_seconds": pulse["interval_seconds"],
+            })
+
+            # Execute one evolution cycle
+            result = self.run_cycle()
+            cycles[-1]["result"] = result
+
+            # Wait until next cycle
+            time.sleep(pulse["interval_seconds"])
+
+        return {"cycles": cycles}

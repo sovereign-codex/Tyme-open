@@ -14,6 +14,7 @@ from backend.github_api import GitHubAPI
 from backend.drift_monitor import DriftMonitor
 from backend.heatmap_analyzer import HeatmapAnalyzer
 from backend.autonomous import AutonomousEvolution
+from backend.rhythm import RhythmEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -225,6 +226,15 @@ def get_heatmap_data():
     """
     analyzer = HeatmapAnalyzer()
     return analyzer.analyze()
+
+
+@app.get("/governance/rhythm.json")
+def get_rhythm_status():
+    """
+    Returns the current autonomous rhythm mode and pacing interval.
+    """
+    r = RhythmEngine()
+    return r.get_rhythm()
 
 
 @app.post("/autonomous/run")
