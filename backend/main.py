@@ -9,6 +9,7 @@ from avot_units.fabricator import Fabricator
 from avot_units.guardian import Guardian
 from avot_units.archivist import Archivist
 from avot_units.pr_generator import PRGenerator
+from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
 
 app = FastAPI()
@@ -81,6 +82,20 @@ def trigger_auto_pr(request: AutoPRRequest):
     import time
     archivist_result.output["metadata"]["agent_id"] = "AVOT-fabricator"
     archivist_result.output["metadata"]["timestamp"] = str(time.time())
+    version = archivist_result.output["metadata"].get("version", "unknown")
+    filename = os.path.basename(scroll_path)
+
+    # 3) Master Architecture Index Update
+    indexer_task = engine.create_task(
+        name="update-master-index",
+        payload={
+            "version": version,
+            "filename": filename,
+            "metadata": archivist_result.output["metadata"],
+        },
+        created_by="api",
+    )
+    indexer_result = engine.run("AVOT-indexer", indexer_task)
 
     pr_generator = PRGenerator()
     payload = pr_generator.generate(
