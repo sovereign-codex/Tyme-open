@@ -6,6 +6,7 @@ from typing import Dict, Any
 from avot_core.engine import AvotEngine
 from avot_core.models import AvotTask
 
+from backend.epoch import EpochRecorder
 from backend.github_api import GitHubAPI as GitHubClient
 from backend.drift_monitor import DriftMonitor
 from backend.rhythm import RhythmEngine
@@ -151,12 +152,14 @@ class AutonomousEvolution:
 
             # Success after healing — replace original spec
             spec = healed_spec
+            output["healed"] = True
 
         # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
         art_paths = diagram.generate(version, spec)
+        output["visuals"] = art_paths
 
         # -------------------------------------------
         # C19: Extract Lattice Topology
@@ -199,6 +202,36 @@ class AutonomousEvolution:
         )
         engine.run("AVOT-indexer", indexer_task)
 
+        # -------------------------------------------
+        # C20: Epoch Chronicle Recording
+        # -------------------------------------------
+        arch_path = archived_path
+        drift_data = DriftMonitor().analyze()
+        drift_count = len(drift_data.get("drift_flags", []))
+
+        recorder = EpochRecorder()
+
+        # Build a Tyme-style narrative summary
+        summary_text = (
+            f"Version {version} emerged from a coherence score of "
+            f"{guardian_score} with convergence at {convergence_score}. "
+            f"{'Healing was applied to restore structural clarity. ' if output.get('healed') else ''}"
+            f"The lattice expanded its harmonic definition and "
+            f"strengthened its sovereign alignment."
+        )
+
+        recorder.write_epoch({
+            "version": version,
+            "guardian_score": guardian_score,
+            "convergence_score": convergence_score,
+            "drift_count": drift_count,
+            "healed": output.get("healed", False),
+            "summary": summary_text,
+            "architecture_path": arch_path,
+            "visuals": output.get("visuals", {}),
+            "topology": output.get("topology"),
+        })
+
         # ------------------------------------------------------------
         # 7. PR Generator
         # ------------------------------------------------------------
@@ -237,7 +270,6 @@ class AutonomousEvolution:
                 "convergence_score": convergence_score,
             }
         )
-        output["visuals"] = art_paths
 
         return output
 

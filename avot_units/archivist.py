@@ -61,4 +61,10 @@ class Archivist:
     ) -> str:
         if visuals:
             scroll = self._inject_visuals_section(scroll, visuals, version)
-        return self.save_scroll(scroll, title, directory)
+
+        md = scroll
+
+        md += "\n## Epoch Chronicle\n"
+        md += f"[View Epoch Log](/chronicle/epoch-log.md)\n\n"
+
+        return self.save_scroll(md, title, directory)
