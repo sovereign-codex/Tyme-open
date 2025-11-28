@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Governance Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 28px;
+            background: #0b0d12;
+            color: #eef;
+        }
+        h1 {
+            color: #9fe3ff;
+        }
+        pre {
+            background: #11141a;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .section {
+            margin-bottom: 50px;
+        }
+        .score-block {
+            background: #141820;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Tyme Hall — Governance Panel</h1>
+
+<div id="summary" class="section">
+    <h2>Latest Governance Summary</h2>
+    <div id="latest"></div>
+</div>
+
+<div class="section">
+    <h2>Master Architecture Index</h2>
+    <pre id="index">Loading...</pre>
+</div>
+
+<script>
+async function loadData() {
+    const res = await fetch("/governance/summary");
+    const data = await res.json();
+
+    if (data.latest) {
+        const div = document.getElementById("latest");
+        div.innerHTML = `
+            <div class="score-block">
+                <strong>Version:</strong> ${data.latest.version}<br>
+                <strong>Filename:</strong> ${data.latest.filename}<br>
+                <strong>Guardian Score:</strong> ${data.latest.guardian_score}<br>
+                <strong>Convergence Score:</strong> ${data.latest.convergence_score}<br>
+                <strong>Timestamp:</strong> ${data.latest.timestamp}<br>
+                <strong>PR Link:</strong> <a href="${data.latest.pr_url}" target="_blank">View PR</a>
+            </div>
+        `;
+    }
+
+    const indexRes = await fetch("/docs/MASTER-ARCHITECTURE-INDEX.md");
+    const indexText = await indexRes.text();
+    document.getElementById("index").innerText = indexText;
+}
+
+loadData();
+</script>
+
+</body>
+</html>
