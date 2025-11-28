@@ -125,3 +125,43 @@ def trigger_auto_pr(request: AutoPRRequest):
         "scroll_path": scroll_path,
         "pull_request": pr_response,
     }
+
+
+@app.get("/governance/summary")
+def get_governance_summary():
+    """
+    Returns a JSON summary of the latest architecture update as well
+    as metadata needed for the governance panel.
+    """
+    import os, re, json
+
+    index_path = "docs/MASTER-ARCHITECTURE-INDEX.md"
+    latest = None
+
+    if os.path.exists(index_path):
+        with open(index_path, "r") as f:
+            text = f.read()
+
+        # Parse the most recent version block
+        blocks = re.split(r"## Version ", text)
+        if len(blocks) > 1:
+            last = "## Version " + blocks[-1]
+            # Extract components
+            version = re.search(r"v([0-9.]+)", last)
+            filename = re.search(r"Filename:\*\* `([^`]+)`", last)
+            guard = re.search(r"Guardian Score:\*\* ([0-9.]+)", last)
+            conv = re.search(r"Convergence Score:\*\* ([0-9.]+)", last)
+            ts = re.search(r"Timestamp:\*\* ([0-9.]+)", last)
+
+            latest = {
+                "version": version.group(1) if version else "unknown",
+                "filename": filename.group(1) if filename else "unknown",
+                "guardian_score": guard.group(1) if guard else "unknown",
+                "convergence_score": conv.group(1) if conv else "unknown",
+                "timestamp": ts.group(1) if ts else "unknown",
+                "pr_url": f"https://github.com/sovereign-codex/Tyme-open/pull"  # placeholder
+            }
+
+    return {
+        "latest": latest
+    }
