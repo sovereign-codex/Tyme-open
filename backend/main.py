@@ -21,6 +21,7 @@ from backend.delta_engine import DeltaEngine
 from backend.phase_plot import PhasePlotEngine
 from backend.attractor import AttractorEngine
 from backend.basin import BasinEngine
+from backend.simulation import HarmonicSimEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -322,6 +323,56 @@ def get_basin_map():
         return {"error": "Field data missing for basin computation"}
 
     return basin_engine.compute(latest_version, attractor_data, field_data)
+
+
+@app.get("/governance/simulation.json")
+def get_simulation(version: Optional[str] = None):
+    """
+    Returns the harmonic simulation timeline and wave summary.
+    If no version is provided, the latest available simulation is served.
+    """
+
+    sim_dir = HarmonicSimEngine.OUTPUT_DIR
+    if not os.path.exists(sim_dir):
+        return {"error": "Simulation output missing"}
+
+    if not version:
+        versions = []
+        for fname in os.listdir(sim_dir):
+            if fname.startswith("sim-v") and fname.endswith(".json"):
+                ver = fname[len("sim-v") : -len(".json")]
+                try:
+                    versions.append((float(ver), ver))
+                except ValueError:
+                    versions.append((ver, ver))
+        if versions:
+            versions.sort(key=lambda v: v[0])
+            version = versions[-1][1]
+        else:
+            return {"error": "No simulation files found"}
+
+    sim_path = os.path.join(sim_dir, f"sim-v{version}.json")
+    wave_path = os.path.join(sim_dir, f"wave-v{version}.json")
+
+    if not os.path.exists(sim_path):
+        return {"error": f"Simulation timeline missing for v{version}"}
+
+    with open(sim_path) as f:
+        timeline = json.load(f)
+
+    waves: Dict[str, Any] = {}
+    if os.path.exists(wave_path):
+        with open(wave_path) as f:
+            waves = json.load(f)
+
+    return {
+        "version": version,
+        "timeline": timeline,
+        "waves": waves,
+        "sim_path": sim_path,
+        "wave_path": wave_path if os.path.exists(wave_path) else None,
+        "steps": len(timeline),
+    }
 
 
 @app.post("/autonomous/run")
