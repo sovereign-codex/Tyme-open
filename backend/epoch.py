@@ -77,6 +77,13 @@ class EpochRecorder:
             entry.append(f"- Field Strength File: {f.get('field_path')}\n")
             entry.append(f"- Heatmap File: {f.get('heatmap_path')}\n")
 
+        if "phase" in data:
+            p = data.get("phase") or {}
+            entry.append("\n### Phase Plot\n")
+            if isinstance(p, dict) and p.get("path"):
+                entry.append(f"- Phase Data: {p.get('path')}\n")
+            entry.append("- View: /panel/phase.html\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
