@@ -6,6 +6,7 @@ from typing import Dict, Any
 from avot_core.engine import AvotEngine
 from avot_core.models import AvotTask
 
+from avot_units.convergence_predictive import AvotConvergencePredictive  # noqa: F401
 from backend.epoch import EpochRecorder
 from backend.github_api import GitHubAPI as GitHubClient
 from backend.drift_monitor import DriftMonitor
@@ -31,6 +32,7 @@ class AutonomousEvolution:
     def run_cycle(self) -> Dict[str, Any]:
         engine = AvotEngine()
         output: Dict[str, Any] = {}
+        payload: Dict[str, Any] = {}
 
         # ------------------------------------------------------------
         # 1. Multi-agent prediction
@@ -103,6 +105,61 @@ class AutonomousEvolution:
         predicted_topology_path = topo.extract(predictive_version, predicted_spec)
 
         output["predictive_topology"] = predicted_topology_path
+
+        # -------------------------------------------
+        # C25: Self-Stabilizing Predictive Convergence Gate
+        # -------------------------------------------
+
+        # Compute predictive delta vs current version if possible
+        try:
+            # 'current_version' may be tracked upstream; if not available,
+            # fall back to "0"
+            current_version = str(payload.get("current_version", "0"))
+        except Exception:
+            current_version = "0"
+
+        try:
+            delta_engine = DeltaEngine()
+            predictive_delta = delta_engine.compute_delta(
+                v_new="predicted",   # synthetic ID for predicted spec
+                v_old=current_version
+            )
+        except Exception:
+            predictive_delta = {}
+
+        # Epoch params were fetched earlier in the cycle (C16)
+        # Ensure 'epoch_params' variable is available; if not, get it:
+        try:
+            epoch_state = epoch_params
+        except NameError:
+            epoch_state = EpochEngine().get_epoch()
+
+        # Run AVOT-convergence-predictive
+        pred_conv_task = engine.create_task(
+            name="predictive-convergence-gate",
+            payload={
+                "predicted_spec": predicted_spec,
+                "epoch": epoch_state,
+                "steering_score": steering_score,
+                "delta": predictive_delta,
+            },
+            created_by="autonomous",
+        )
+        pred_conv = engine.run("AVOT-convergence-predictive", pred_conv_task).output
+
+        predictive_approved = pred_conv.get("predictive_approved", True)
+        predictive_action = pred_conv.get("recommended_action", "proceed")
+
+        # If predictive gate says 'hold', abort evolution early
+        if not predictive_approved or predictive_action == "hold":
+            return {
+                "status": "blocked_by_predictive_convergence",
+                "predictive_convergence": pred_conv,
+            }
+
+        # If recommended_action == 'proceed_softened', we can optionally
+        # add a softening hint into metadata for later use.
+        # (No structural change required here, but signal is preserved.)
 
         # ------------------------------------------------------------
         # 2. Fabricate (predictive mode)
@@ -188,6 +245,7 @@ class AutonomousEvolution:
                     "convergence_score": c2,
                     "steering_score": steering_score,
                     "steering_actions": steering.get("actions", []),
+                    "predictive_convergence": pred_conv,
                 }
 
             # Success after healing — replace original spec
@@ -221,6 +279,7 @@ class AutonomousEvolution:
                 "topology": topo_path,
                 "steering_score": steering_score,
                 "steering_actions": steering.get("actions", []),
+                "predictive_convergence": pred_conv,
             },
             created_by="autonomous"
         )
@@ -233,6 +292,7 @@ class AutonomousEvolution:
         metadata["convergence_score"] = convergence_score
         metadata["agent_id"] = "autonomous-cycle"
         metadata["timestamp"] = time.time()
+        metadata["predictive_convergence"] = pred_conv
 
         # ------------------------------------------------------------
         # 6. Indexer
@@ -284,6 +344,7 @@ class AutonomousEvolution:
             "delta": delta,
             "steering_score": steering_score,
             "steering_actions": steering.get("actions", []),
+            "predictive_convergence": pred_conv,
         })
 
         # ------------------------------------------------------------
@@ -324,6 +385,7 @@ class AutonomousEvolution:
                 "convergence_score": convergence_score,
                 "steering_score": steering_score,
                 "steering_actions": steering.get("actions", []),
+                "predictive_convergence": pred_conv,
             }
         )
 

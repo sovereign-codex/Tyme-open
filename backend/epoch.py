@@ -51,6 +51,16 @@ class EpochRecorder:
             entry.append(f"Score: {data['steering_score']}\n")
             entry.append(f"Actions: {data.get('steering_actions',[])}\n")
 
+        if "predictive_convergence" in data:
+            pc = data["predictive_convergence"]
+            entry.append("\n### Predictive Convergence Gate\n")
+            entry.append(f"- Predictive Guardian: {pc.get('predictive_guardian_score')}\n")
+            entry.append(f"- Predictive Convergence: {pc.get('predictive_convergence_score')}\n")
+            entry.append(f"- Predictive Score: {pc.get('predictive_score')}\n")
+            entry.append(f"- Threshold: {pc.get('predictive_threshold')}\n")
+            entry.append(f"- Approved: {pc.get('predictive_approved')}\n")
+            entry.append(f"- Recommended Action: {pc.get('recommended_action')}\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
