@@ -70,6 +70,13 @@ class EpochRecorder:
             for k,v in s["strategies"].items():
                 entry.append(f"  - {k}: {v['score']}\n")
 
+        if "field" in data:
+            f = data["field"]
+            entry.append("\n### Field Coherence\n")
+            entry.append(f"- Coherence Index: {f.get('coherence_index')}\n")
+            entry.append(f"- Field Strength File: {f.get('field_path')}\n")
+            entry.append(f"- Heatmap File: {f.get('heatmap_path')}\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
