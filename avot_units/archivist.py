@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 
 class Archivist:
@@ -58,11 +58,23 @@ class Archivist:
         directory: str = "docs",
         visuals: Optional[Dict[str, str]] = None,
         version: Optional[str] = None,
+        payload: Optional[Dict[str, Any]] = None,
     ) -> str:
         if visuals:
             scroll = self._inject_visuals_section(scroll, visuals, version)
 
         md = scroll
+
+        payload = payload or {}
+
+        if "steering_score" in payload:
+            md += "## Predictive Steering\n"
+            md += f"**Steering Score:** {payload['steering_score']}\n"
+            if 'steering_actions' in payload:
+                md += "### Actions Applied\n"
+                for a in payload['steering_actions']:
+                    md += f"- {a}\n"
+            md += "\n"
 
         md += "\n## Epoch Chronicle\n"
         md += f"[View Epoch Log](/chronicle/epoch-log.md)\n\n"
