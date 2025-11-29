@@ -109,6 +109,19 @@ class EpochRecorder:
                 entry.append(f"- Waveform: {sim.get('wave_path')}\n")
             entry.append("- View: /panel/simulation.html\n")
 
+        if "recovery" in data:
+            rec = data.get("recovery") or {}
+            entry.append("\n### Resonance Recovery Protocols (C37)\n")
+            entry.append(f"- Recovered: {rec.get('recovered')}\n")
+            if rec.get("path"):
+                entry.append(f"- Recovery Snapshot: {rec.get('path')}\n")
+            if rec.get("healing_pulse_energy") is not None:
+                entry.append(f"- Healing Pulse Energy: {rec.get('healing_pulse_energy')}\n")
+            if rec.get("epoch_recovered"):
+                entry.append(f"- Epoch Stabilization: {json.dumps(rec.get('epoch_recovered'))}\n")
+            if rec.get("corrected_resonance_vector"):
+                entry.append(f"- Corrected Resonance Vector Length: {len(rec.get('corrected_resonance_vector', []))}\n")
+
         if "continuum" in data:
             c = data.get("continuum") or {}
             entry.append("\n### Sovereign Continuum\n")

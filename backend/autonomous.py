@@ -29,6 +29,7 @@ from backend.resonance import ResonanceEngine
 from backend.epoch_tuner import EpochTuner
 from backend.simulation import HarmonicSimEngine
 from backend.continuum import ContinuumEngine
+from backend.recovery import RecoveryEngine
 
 
 class AutonomousEvolution:
@@ -417,6 +418,37 @@ class AutonomousEvolution:
         )
 
         # -------------------------------------------
+        # C37: Resonance Recovery Protocols
+        # -------------------------------------------
+        recovery_engine = RecoveryEngine()
+        recovery = recovery_engine.process(
+            str(version),
+            spec,
+            output.get("continuum", {}),
+            output.get("resonance", {}),
+            output.get("basin", {}),
+            output.get("attractor", {}),
+            epoch_state,
+            output.get("simulation", {}),
+        )
+        output["recovery"] = recovery
+
+        if recovery.get("recovered"):
+            if recovery.get("new_spec"):
+                spec = recovery.get("new_spec", spec)
+            if recovery.get("corrected_resonance_vector"):
+                resonance_state = output.get("resonance", {}) or {}
+                resonance_state["resonance_vector"] = recovery["corrected_resonance_vector"]
+                output["resonance"] = resonance_state
+            if recovery.get("epoch_recovered"):
+                epoch_state["parameters"] = recovery.get("epoch_recovered", epoch_state.get("parameters", {}))
+                output["epoch_recovered"] = recovery["epoch_recovered"]
+            if recovery.get("healing_pulse_energy") is not None:
+                simulation_state = output.get("simulation", {}) or {}
+                simulation_state["healing_pulse_energy"] = recovery.get("healing_pulse_energy")
+                output["simulation"] = simulation_state
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -449,6 +481,7 @@ class AutonomousEvolution:
                 "simulation": output.get("simulation"),
                 "epoch_tuned": output.get("epoch_tuned"),
                 "continuum": output.get("continuum"),
+                "recovery": output.get("recovery"),
             },
             created_by="autonomous"
         )
@@ -465,6 +498,7 @@ class AutonomousEvolution:
         metadata["resonance"] = output.get("resonance")
         metadata["simulation"] = output.get("simulation")
         metadata["continuum"] = output.get("continuum")
+        metadata["recovery"] = output.get("recovery")
 
         # ------------------------------------------------------------
         # 6. Indexer
@@ -505,6 +539,9 @@ class AutonomousEvolution:
         )
         if resonance_mode:
             summary_text += f" Resonance guidance signaled **{resonance_mode}** mode to tune the evolution parameters."
+        recovery_state = output.get("recovery", {})
+        if recovery_state.get("recovered"):
+            summary_text += " Resonance Recovery Protocols activated to re-center the spectrum and stabilize the epoch cadence."
 
         recorder.write_epoch({
             "version": version,
@@ -529,6 +566,7 @@ class AutonomousEvolution:
             "epoch_tuned": output.get("epoch_tuned"),
             "simulation": output.get("simulation"),
             "continuum": output.get("continuum"),
+            "recovery": output.get("recovery"),
         })
 
         # ------------------------------------------------------------
