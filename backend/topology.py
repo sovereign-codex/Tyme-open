@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, Any, List
 import os
 import json
+from backend.delta_engine import DeltaEngine
 
 
 class TopologyExtractor:
@@ -25,6 +26,15 @@ class TopologyExtractor:
         root = spec.get("root_node", "sovereign")
         layers = spec.get("layers", [])
         lifecycle = spec.get("lifecycle", {})
+
+        # Compute delta against previous version (if exists)
+        delta = {}
+        try:
+            old_version = str(float(version) - 1)
+            de = DeltaEngine()
+            delta = de.compute_delta(version, old_version)
+        except:
+            delta = {}
 
         nodes = [{"id": root, "type": "root"}]
 
@@ -53,7 +63,11 @@ class TopologyExtractor:
             nodes.append({"id": state, "type": "lifecycle"})
             nodes.append({"id": nxt, "type": "lifecycle"})
 
-        topology = {"nodes": nodes, "edges": edges}
+        topology = {
+            "nodes": nodes,
+            "edges": edges,
+            "delta": delta
+        }
 
         path = os.path.join(self.OUTPUT_DIR, f"topology-v{version}.json")
         with open(path, "w") as f:
