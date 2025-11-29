@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panoptic Evolution Engine — C39</title>
+  <style>
+    body {
+      background: radial-gradient(circle at 25% 25%, #0f1c2f, #05070f 70%);
+      color: #e8f7ff;
+      font-family: "Inter", "Space Grotesk", system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 32px;
+    }
+    h1 { color: #7fe0ff; margin-bottom: 4px; }
+    p.muted { color: #9fbed4; margin-top: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
+    .card {
+      background: rgba(13, 24, 38, 0.78);
+      border: 1px solid rgba(127, 224, 255, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 26px rgba(0,0,0,0.35);
+    }
+    .label { text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #8bcaf0; }
+    .value { font-size: 28px; font-weight: 700; color: #e3f6ff; }
+    .path { word-break: break-all; color: #7fc4ff; font-size: 13px; }
+    ul { padding-left: 18px; }
+  </style>
+</head>
+<body>
+  <h1>Panoptic Evolution Engine</h1>
+  <p class="muted">C39 performs version-graph analysis, long-horizon meta-prediction, and panoptic stability metrics above the continuum layer.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Panoptic Stability Index</div>
+      <div class="value" id="psi">–</div>
+    </div>
+    <div class="card">
+      <div class="label">Drift Trend</div>
+      <div class="value" id="drift-trend">–</div>
+    </div>
+    <div class="card">
+      <div class="label">Delta Variance</div>
+      <div class="value" id="delta-variance">–</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label">Panoptic Evolution Graph</div>
+    <p class="muted" id="graph-meta">Loading graph…</p>
+    <ul id="graph-list"></ul>
+  </div>
+
+  <div class="card" style="margin-top:18px;">
+    <div class="label">Latest Artifact</div>
+    <div class="path" id="artifact-path">Awaiting artifact…</div>
+  </div>
+
+  <script>
+    async function loadPanoptic() {
+      const params = new URLSearchParams(window.location.search);
+      const version = params.get('version');
+      const url = version
+        ? `/visuals/panoptic/panoptic-v${version}.json`
+        : '/visuals/panoptic/panoptic-latest.json';
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('panoptic file missing');
+        const data = await res.json();
+        const metrics = data.panoptic_metrics || {};
+
+        document.getElementById('psi').innerText = Number(metrics.psi || 0).toFixed(4);
+        document.getElementById('drift-trend').innerText = Number(metrics.drift_trend || 0).toFixed(6);
+        document.getElementById('delta-variance').innerText = Number(metrics.delta_variance || 0).toFixed(6);
+
+        const graph = data.graph || {};
+        const graphEntries = Object.entries(graph);
+        const list = document.getElementById('graph-list');
+        if (!graphEntries.length) {
+          list.innerHTML = '<li class="muted">No continuum versions available.</li>';
+        } else {
+          list.innerHTML = graphEntries
+            .map(([v, g]) => `<li><strong>v${v}</strong> — Δ: ${Number(g.delta_from_prev || 0).toFixed(4)}, score: ${Number(g.score || 0).toFixed(4)}, drift: ${Number(g.drift || 0).toFixed(4)}, alignment: ${Number(g.alignment || 0).toFixed(4)}</li>`)
+            .join('');
+          document.getElementById('graph-meta').innerText = `${graphEntries.length} continuum checkpoints in graph.`;
+        }
+
+        document.getElementById('artifact-path').innerText = data.path || url;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('graph-meta').innerText = 'Panoptic artifact unavailable.';
+        document.getElementById('artifact-path').innerText = url;
+      }
+    }
+
+    loadPanoptic();
+  </script>
+</body>
+</html>

@@ -134,6 +134,19 @@ class EpochRecorder:
                 entry.append(f"- Continuum Map: {c.get('path')}\n")
             entry.append("- View: /panel/continuum.html\n")
 
+        if "panoptic" in data:
+            p = data.get("panoptic") or {}
+            metrics = p.get("panoptic_metrics", {})
+            entry.append("\n### Panoptic Evolution Engine (C39)\n")
+            entry.append(f"- Panoptic Stability Index (PSI): {metrics.get('psi')}\n")
+            entry.append(f"- Drift Trend: {metrics.get('drift_trend')}\n")
+            entry.append(f"- Delta Variance: {metrics.get('delta_variance')}\n")
+            graph_versions = p.get("versions") or list((p.get("graph") or {}).keys())
+            entry.append(f"- Version Graph Count: {len(graph_versions)}\n")
+            if p.get("path"):
+                entry.append(f"- Panoptic Graph: {p.get('path')}\n")
+            entry.append("- View: /scrolls/panoptic.html\n")
+
         if "epoch_tuned" in data:
             ep = data["epoch_tuned"]
             entry.append("\n### Harmonic Epoch Tuning\n")

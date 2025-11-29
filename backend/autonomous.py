@@ -30,6 +30,7 @@ from backend.epoch_tuner import EpochTuner
 from backend.simulation import HarmonicSimEngine
 from backend.continuum import ContinuumEngine
 from backend.recovery import RecoveryEngine
+from backend.panoptic import PanopticEngine
 
 
 class AutonomousEvolution:
@@ -418,6 +419,12 @@ class AutonomousEvolution:
         )
 
         # -------------------------------------------
+        # C39: Panoptic Evolution Engine
+        # -------------------------------------------
+        panoptic_engine = PanopticEngine()
+        output["panoptic"] = panoptic_engine.process(str(version))
+
+        # -------------------------------------------
         # C37: Resonance Recovery Protocols
         # -------------------------------------------
         recovery_engine = RecoveryEngine()
@@ -481,6 +488,7 @@ class AutonomousEvolution:
                 "simulation": output.get("simulation"),
                 "epoch_tuned": output.get("epoch_tuned"),
                 "continuum": output.get("continuum"),
+                "panoptic": output.get("panoptic"),
                 "recovery": output.get("recovery"),
             },
             created_by="autonomous"
@@ -498,6 +506,7 @@ class AutonomousEvolution:
         metadata["resonance"] = output.get("resonance")
         metadata["simulation"] = output.get("simulation")
         metadata["continuum"] = output.get("continuum")
+        metadata["panoptic"] = output.get("panoptic")
         metadata["recovery"] = output.get("recovery")
 
         # ------------------------------------------------------------
@@ -566,6 +575,7 @@ class AutonomousEvolution:
             "epoch_tuned": output.get("epoch_tuned"),
             "simulation": output.get("simulation"),
             "continuum": output.get("continuum"),
+            "panoptic": output.get("panoptic"),
             "recovery": output.get("recovery"),
         })
 
