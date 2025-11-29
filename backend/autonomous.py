@@ -14,6 +14,7 @@ from backend.epochs import EpochEngine
 from backend.diagram_generator import DiagramGenerator
 from backend.topology import TopologyExtractor
 from backend.delta_engine import DeltaEngine
+from backend.steering import SteeringEngine
 
 
 class AutonomousEvolution:
@@ -76,6 +77,29 @@ class AutonomousEvolution:
         latest_version = drift_entries[-1]["version"] if drift_entries else "0"
         predictive_version = f"{float(latest_version) + 1}"
         topo = TopologyExtractor()
+
+        # -------------------------------------------
+        # C24: Predictive Steering
+        # -------------------------------------------
+        # Compute predictive delta vs current version
+        try:
+            current_version = str(float(latest_version))
+            from backend.delta_engine import DeltaEngine
+            de = DeltaEngine()
+            predictive_delta = de.compute_delta(predictive_version, current_version)
+        except:  # pragma: no cover - defensive
+            predictive_delta = {}
+
+        # Load epoch params (already computed earlier)
+        epoch_parameters = epoch_params["parameters"]
+
+        # Apply steering
+        steering = SteeringEngine().steer(predicted_spec, predictive_delta, epoch_parameters)
+        predicted_spec = steering["steered_spec"]
+        steering_score = steering["steering_score"]
+        output["steering_score"] = steering_score
+        output["steering_actions"] = steering.get("actions", [])
+
         predicted_topology_path = topo.extract(predictive_version, predicted_spec)
 
         output["predictive_topology"] = predicted_topology_path
@@ -162,6 +186,8 @@ class AutonomousEvolution:
                     "status": "rejected_after_healing",
                     "guardian_score": g2,
                     "convergence_score": c2,
+                    "steering_score": steering_score,
+                    "steering_actions": steering.get("actions", []),
                 }
 
             # Success after healing — replace original spec
@@ -193,6 +219,8 @@ class AutonomousEvolution:
                 "filename": filename,
                 "visuals": art_paths,
                 "topology": topo_path,
+                "steering_score": steering_score,
+                "steering_actions": steering.get("actions", []),
             },
             created_by="autonomous"
         )
@@ -254,6 +282,8 @@ class AutonomousEvolution:
             "visuals": output.get("visuals", {}),
             "topology": output.get("topology"),
             "delta": delta,
+            "steering_score": steering_score,
+            "steering_actions": steering.get("actions", []),
         })
 
         # ------------------------------------------------------------
@@ -292,6 +322,8 @@ class AutonomousEvolution:
                 "pr_url": pr_info.get("html_url"),
                 "guardian_score": guardian_score,
                 "convergence_score": convergence_score,
+                "steering_score": steering_score,
+                "steering_actions": steering.get("actions", []),
             }
         )
 

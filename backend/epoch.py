@@ -46,6 +46,11 @@ class EpochRecorder:
         entry.append("\n### Summary\n")
         entry.append(data.get("summary", "No summary provided.") + "\n")
 
+        if "steering_score" in data:
+            entry.append("\n### Steering\n")
+            entry.append(f"Score: {data['steering_score']}\n")
+            entry.append(f"Actions: {data.get('steering_actions',[])}\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
