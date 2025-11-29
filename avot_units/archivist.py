@@ -103,6 +103,16 @@ class Archivist:
             md += f"- [Field Strengths]({f.get('field_path')})\n"
             md += f"- [Tension Heatmap]({f.get('heatmap_path')})\n\n"
 
+        if "simulation" in payload:
+            sim = payload["simulation"] or {}
+            md += "## Harmonic Simulation\n"
+            md += f"- Steps: {sim.get('steps')}\n"
+            if sim.get("sim_path"):
+                md += f"- [Trajectory]({sim.get('sim_path')})\n"
+            if sim.get("wave_path"):
+                md += f"- [Waveform]({sim.get('wave_path')})\n"
+            md += "- View: /panel/simulation.html\n\n"
+
         if "epoch_tuned" in payload:
             ep = payload["epoch_tuned"]
             md += "## Harmonic Epoch Tuning\n"

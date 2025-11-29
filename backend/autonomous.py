@@ -27,6 +27,7 @@ from backend.basin import BasinEngine
 from backend.regression_engine import RegressionEngine
 from backend.resonance import ResonanceEngine
 from backend.epoch_tuner import EpochTuner
+from backend.simulation import HarmonicSimEngine
 
 
 class AutonomousEvolution:
@@ -385,6 +386,20 @@ class AutonomousEvolution:
         output["epoch_tuned"] = tuned_params
 
         # -------------------------------------------
+        # C35: Harmonic Simulation Engine
+        # -------------------------------------------
+        sim_engine = HarmonicSimEngine()
+        output["simulation"] = sim_engine.simulate(
+            str(version),
+            spec,
+            output.get("field", {}),
+            output.get("basin", {}),
+            output.get("resonance", {}),
+            epoch_state,
+            steps=60,
+        )
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -414,6 +429,7 @@ class AutonomousEvolution:
                 "predictive_convergence": pred_conv,
                 "field": output.get("field"),
                 "resonance": output.get("resonance"),
+                "simulation": output.get("simulation"),
                 "epoch_tuned": output.get("epoch_tuned"),
             },
             created_by="autonomous"
@@ -429,6 +445,7 @@ class AutonomousEvolution:
         metadata["timestamp"] = time.time()
         metadata["predictive_convergence"] = pred_conv
         metadata["resonance"] = output.get("resonance")
+        metadata["simulation"] = output.get("simulation")
 
         # ------------------------------------------------------------
         # 6. Indexer
@@ -491,6 +508,7 @@ class AutonomousEvolution:
             "resonance": output.get("resonance"),
             "resonance_path": output.get("resonance_path"),
             "epoch_tuned": output.get("epoch_tuned"),
+            "simulation": output.get("simulation"),
         })
 
         # ------------------------------------------------------------

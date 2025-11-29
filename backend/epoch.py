@@ -99,6 +99,16 @@ class EpochRecorder:
             if data.get("resonance_path"):
                 entry.append(f"- Snapshot: {data.get('resonance_path')}\n")
 
+        if "simulation" in data:
+            sim = data.get("simulation") or {}
+            entry.append("\n### Harmonic Simulation\n")
+            entry.append(f"- Steps: {sim.get('steps')}\n")
+            if sim.get("sim_path"):
+                entry.append(f"- Trajectory: {sim.get('sim_path')}\n")
+            if sim.get("wave_path"):
+                entry.append(f"- Waveform: {sim.get('wave_path')}\n")
+            entry.append("- View: /panel/simulation.html\n")
+
         if "epoch_tuned" in data:
             ep = data["epoch_tuned"]
             entry.append("\n### Harmonic Epoch Tuning\n")

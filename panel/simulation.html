@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Harmonic Simulation</title>
+    <link rel="stylesheet" href="/panel/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0b0d12; color: #eef; font-family: Arial, sans-serif; }
+        h1 { color: #9fe3ff; }
+        .container { max-width: 1200px; margin: auto; }
+        .status { background: #11141a; padding: 12px 16px; border-radius: 8px; margin-bottom: 14px; }
+        .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { background: #11141a; padding: 16px; border-radius: 10px; }
+        #log { max-height: 220px; overflow-y: auto; background: #11141a; padding: 12px; border-radius: 10px; font-size: 14px; }
+        .wave-list { list-style: none; padding: 0; margin: 0; }
+        .wave-list li { margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
+    <a href="/panel/phase.html">Phase Plots</a>
+    <a href="/panel/simulation.html" class="active">Harmonic Simulation</a>
+</div>
+
+<div class="content">
+    <div class="container">
+        <h1>Harmonic Simulation Engine</h1>
+        <p>Time-stepped resonance propagation across the lattice. Use <code>?version=&lt;id&gt;</code> to load a specific run.</p>
+        <div id="status" class="status">Loading simulation...</div>
+
+        <div class="charts">
+            <div class="card">
+                <h3>Resonance Timeline</h3>
+                <canvas id="timelineChart" height="320"></canvas>
+            </div>
+            <div class="card">
+                <h3>Wave Peaks</h3>
+                <canvas id="waveChart" height="320"></canvas>
+                <ul id="waveList" class="wave-list"></ul>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+            <h3>Step Log</h3>
+            <div id="log">Awaiting data...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const versionParam = params.get('version');
+
+const palette = [
+    '#7dd3fc', '#a5b4fc', '#f9a8d4', '#f87171', '#facc15',
+    '#34d399', '#c084fc', '#60a5fa', '#f472b6', '#fb7185'
+];
+
+function makeColor(idx) {
+    return palette[idx % palette.length];
+}
+
+async function loadSimulation() {
+    const status = document.getElementById('status');
+    let url = '/governance/simulation.json';
+    if (versionParam) url += `?version=${encodeURIComponent(versionParam)}`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.error) {
+            status.textContent = data.error;
+            return;
+        }
+
+        status.innerHTML = `Loaded simulation for <strong>v${data.version}</strong> with ${data.steps || (data.timeline || []).length} steps.`;
+        if (data.sim_path) {
+            status.innerHTML += ` <br><small>Saved to ${data.sim_path}</small>`;
+        }
+
+        renderTimeline(data.timeline || []);
+        renderWaves(data.waves || {});
+        renderLog(data.timeline || []);
+    } catch (err) {
+        status.textContent = 'Failed to load simulation data.';
+        console.error(err);
+    }
+}
+
+function renderTimeline(timeline) {
+    if (!timeline.length) return;
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+    const nodes = Object.keys(timeline[0] || {});
+    const labels = timeline.map((_, idx) => `t${idx}`);
+
+    const datasets = nodes.map((node, idx) => ({
+        label: node,
+        data: timeline.map(step => step[node] ?? 0),
+        borderColor: makeColor(idx),
+        tension: 0.25,
+        fill: false
+    }));
+
+    new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: '#eef' } },
+                tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.formattedValue}` } }
+            },
+            scales: {
+                x: { ticks: { color: '#cbd5e1' }, grid: { color: '#1c2230' } },
+                y: { ticks: { color: '#cbd5e1' }, grid: { color: '#1c2230' } }
+            }
+        }
+    });
+}
+
+function renderWaves(waves) {
+    const entries = Object.entries(waves || {});
+    if (!entries.length) return;
+    const ctx = document.getElementById('waveChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: entries.map(([node]) => node),
+            datasets: [{
+                label: 'Peak amplitude',
+                data: entries.map(([, val]) => val),
+                backgroundColor: entries.map((_, idx) => makeColor(idx))
+            }]
+        },
+        options: {
+            plugins: { legend: { labels: { color: '#eef' } } },
+            scales: {
+                x: { ticks: { color: '#cbd5e1' }, grid: { color: '#1c2230' } },
+                y: { ticks: { color: '#cbd5e1' }, grid: { color: '#1c2230' } }
+            }
+        }
+    });
+
+    const list = document.getElementById('waveList');
+    list.innerHTML = entries.map(([node, val]) => `<li><strong>${node}</strong>: ${val.toFixed ? val.toFixed(3) : val}</li>`).join('');
+}
+
+function renderLog(timeline) {
+    const log = document.getElementById('log');
+    if (!timeline.length) {
+        log.textContent = 'No timeline available.';
+        return;
+    }
+    const lines = timeline.map((state, idx) => {
+        const pairs = Object.entries(state).map(([k,v]) => `${k}:${v.toFixed ? v.toFixed(3) : v}`).join(' | ');
+        return `t${idx}: ${pairs}`;
+    });
+    log.innerHTML = lines.join('<br>');
+    log.scrollTop = log.scrollHeight;
+}
+
+loadSimulation();
+</script>
+</body>
+</html>
