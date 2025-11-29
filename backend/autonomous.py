@@ -13,6 +13,7 @@ from backend.rhythm import RhythmEngine
 from backend.epochs import EpochEngine
 from backend.diagram_generator import DiagramGenerator
 from backend.topology import TopologyExtractor
+from backend.delta_engine import DeltaEngine
 
 
 class AutonomousEvolution:
@@ -209,6 +210,15 @@ class AutonomousEvolution:
         drift_data = DriftMonitor().analyze()
         drift_count = len(drift_data.get("drift_flags", []))
 
+        # C21: compute delta vs previous version
+        prev_version = str(float(version) - 1)  # naive step
+        try:
+            delta_engine = DeltaEngine()
+            delta = delta_engine.compute_delta(version, prev_version)
+            drift_count = delta.get("drift_count", drift_count)
+        except:  # pragma: no cover - defensive
+            delta = {}
+
         recorder = EpochRecorder()
 
         # Build a Tyme-style narrative summary
@@ -230,6 +240,7 @@ class AutonomousEvolution:
             "architecture_path": arch_path,
             "visuals": output.get("visuals", {}),
             "topology": output.get("topology"),
+            "delta": delta,
         })
 
         # ------------------------------------------------------------

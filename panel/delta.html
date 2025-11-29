@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Delta Explorer</title>
+    <link rel="stylesheet" href="/panel/style.css">
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>Tyme Hall</h2>
+    <a href="/panel/index.html">Overview</a>
+    <a href="/panel/governance.html">Governance Summary</a>
+    <a href="/panel/evolution.html">Evolution Graph</a>
+    <a href="/panel/drift.html">Drift & Stability</a>
+    <a href="/panel/heatmap.html">Architecture Heatmap</a>
+    <a href="/panel/lattice.html">Lattice Viewer</a>
+    <a href="/panel/delta.html">Delta Explorer</a>
+</div>
+
+<div class="content">
+    <h1>Predictive Delta Explorer</h1>
+    <label>New Version: <input id="vNew" type="text"></label>
+    <label>Old Version: <input id="vOld" type="text"></label>
+    <button onclick="loadDelta()">Compare</button>
+
+    <pre id="deltaOut"></pre>
+</div>
+
+<script>
+async function loadDelta() {
+    const vNew = document.getElementById("vNew").value;
+    const vOld = document.getElementById("vOld").value;
+
+    const url = `/governance/delta.json?v_new=${vNew}&v_old=${vOld}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    document.getElementById("deltaOut").innerText = JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>

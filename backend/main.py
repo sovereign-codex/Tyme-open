@@ -16,6 +16,7 @@ from backend.epochs import EpochEngine
 from backend.heatmap_analyzer import HeatmapAnalyzer
 from backend.autonomous import AutonomousEvolution
 from backend.rhythm import RhythmEngine
+from backend.delta_engine import DeltaEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -254,3 +255,12 @@ def autonomous_run():
     """
     ae = AutonomousEvolution()
     return ae.run_cycle()
+
+
+@app.get("/governance/delta.json")
+def get_delta(v_new: str, v_old: str):
+    """
+    Computes structural + semantic delta between versions.
+    """
+    engine = DeltaEngine()
+    return engine.compute_delta(v_new, v_old)
