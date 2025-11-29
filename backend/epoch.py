@@ -99,6 +99,16 @@ class EpochRecorder:
             if data.get("resonance_path"):
                 entry.append(f"- Snapshot: {data.get('resonance_path')}\n")
 
+        if "epoch_tuned" in data:
+            ep = data["epoch_tuned"]
+            entry.append("\n### Harmonic Epoch Tuning\n")
+            entry.append(f"- Epoch Mode: {ep.get('epoch_mode')}\n")
+            entry.append(f"- Convergence Sensitivity: {ep.get('convergence_sensitivity')}\n")
+            entry.append(f"- Semantic Depth: {ep.get('semantic_depth')}\n")
+            entry.append(f"- Horizon: {ep.get('horizon')}\n")
+            entry.append(f"- Evolution Rate: {ep.get('evolution_rate')}\n")
+            entry.append(f"- Strictness: {ep.get('strictness')}\n")
+
         if "phase" in data:
             p = data.get("phase") or {}
             entry.append("\n### Phase Plot\n")

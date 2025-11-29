@@ -26,6 +26,7 @@ from backend.attractor import AttractorEngine
 from backend.basin import BasinEngine
 from backend.regression_engine import RegressionEngine
 from backend.resonance import ResonanceEngine
+from backend.epoch_tuner import EpochTuner
 
 
 class AutonomousEvolution:
@@ -368,6 +369,22 @@ class AutonomousEvolution:
             output["resonance_path"] = None
 
         # -------------------------------------------
+        # C34: Harmonic Epoch Autotuning
+        # -------------------------------------------
+        tuner = EpochTuner()
+        tuned_params = tuner.tune(
+            epoch_state=epoch_state,
+            resonance=output.get("resonance", {}),
+            field=output.get("field", {}),
+            attractor=output.get("attractor", {}),
+            basin=output.get("basin", {}),
+            regression=regression_pred if isinstance(regression_pred, dict) else {},
+        )
+
+        epoch_state["parameters"] = tuned_params
+        output["epoch_tuned"] = tuned_params
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -397,6 +414,7 @@ class AutonomousEvolution:
                 "predictive_convergence": pred_conv,
                 "field": output.get("field"),
                 "resonance": output.get("resonance"),
+                "epoch_tuned": output.get("epoch_tuned"),
             },
             created_by="autonomous"
         )
@@ -472,6 +490,7 @@ class AutonomousEvolution:
             "basin": output.get("basin"),
             "resonance": output.get("resonance"),
             "resonance_path": output.get("resonance_path"),
+            "epoch_tuned": output.get("epoch_tuned"),
         })
 
         # ------------------------------------------------------------

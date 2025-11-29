@@ -103,6 +103,16 @@ class Archivist:
             md += f"- [Field Strengths]({f.get('field_path')})\n"
             md += f"- [Tension Heatmap]({f.get('heatmap_path')})\n\n"
 
+        if "epoch_tuned" in payload:
+            ep = payload["epoch_tuned"]
+            md += "## Harmonic Epoch Tuning\n"
+            md += f"- Epoch Mode: **{ep.get('epoch_mode')}**\n"
+            md += f"- Convergence Sensitivity: {ep.get('convergence_sensitivity')}\n"
+            md += f"- Semantic Depth: {ep.get('semantic_depth')}\n"
+            md += f"- Horizon: {ep.get('horizon')}\n"
+            md += f"- Evolution Rate: {ep.get('evolution_rate')}\n"
+            md += f"- Strictness: {ep.get('strictness')}\n\n"
+
         md += "\n## Epoch Chronicle\n"
         md += f"[View Epoch Log](/chronicle/epoch-log.md)\n\n"
 
