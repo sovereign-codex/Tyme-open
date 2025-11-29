@@ -53,6 +53,28 @@
         <div id="latest"></div>
     </div>
 
+    <div id="commandSection" class="section">
+        <h2>Harmonic Command Protocols (C41)</h2>
+        <p class="small">Issue natural-language, symbolic, or harmonic commands to steer resonance, epoch, and structure. Commands are archived in the Memory Temple.</p>
+        <textarea id="commandInput" placeholder="e.g., Ascend and align the continuum; epoch::deepen; refine the lattice"></textarea>
+        <div style="margin:8px 0; display:flex; gap:10px; flex-wrap:wrap;">
+            <button onclick="sendCommand()">Dispatch Command</button>
+            <button onclick="loadCommandLog()" style="background:#6366f1;">Refresh Log</button>
+        </div>
+        <div class="score-block">
+            <h3 style="margin-top:0;">Parsed Command</h3>
+            <pre id="commandOutput">Awaiting command…</pre>
+        </div>
+        <div class="score-block">
+            <h3 style="margin-top:0;">Aggregated Harmonic State</h3>
+            <pre id="commandState">Awaiting command…</pre>
+        </div>
+        <div class="score-block">
+            <h3 style="margin-top:0;">Temple Command Log (latest)</h3>
+            <div id="commandHistory" class="small">No commands yet.</div>
+        </div>
+    </div>
+
     <div class="section">
         <h2>Master Architecture Index</h2>
         <pre id="index">Loading...</pre>
@@ -81,6 +103,61 @@ async function loadData() {
     const indexRes = await fetch("/docs/MASTER-ARCHITECTURE-INDEX.md");
     const indexText = await indexRes.text();
     document.getElementById("index").innerText = indexText;
+    loadCommandLog();
+}
+
+function renderCommandState(data) {
+    const parsed = data.parsed || { note: "No command dispatched yet." };
+    document.getElementById("commandOutput").innerText = JSON.stringify(parsed, null, 2);
+    document.getElementById("commandState").innerText = JSON.stringify(data.state || {}, null, 2);
+    renderCommandHistory(data.log || []);
+}
+
+function renderCommandHistory(entries) {
+    const container = document.getElementById("commandHistory");
+    if (!entries.length) {
+        container.innerText = "No commands logged yet.";
+        return;
+    }
+
+    const rows = entries.map((entry) => {
+        const intent = entry.intent || "unknown";
+        const epoch = JSON.stringify(entry.epoch_update || {});
+        const reso = JSON.stringify(entry.resonance_update || {});
+        const struct = JSON.stringify(entry.structural_update || {});
+        return `<div style="margin-bottom:10px; border-bottom:1px solid #1f2731; padding-bottom:6px;">
+            <div><strong>Raw:</strong> ${entry.raw}</div>
+            <div class="small">Intent: ${intent}</div>
+            <div class="small">Epoch: ${epoch}</div>
+            <div class="small">Resonance: ${reso}</div>
+            <div class="small">Structural: ${struct}</div>
+        </div>`;
+    });
+
+    container.innerHTML = rows.join("");
+}
+
+async function loadCommandLog() {
+    const res = await fetch("/governance/command");
+    const data = await res.json();
+    renderCommandState(data);
+}
+
+async function sendCommand() {
+    const cmd = document.getElementById("commandInput").value.trim();
+    if (!cmd) {
+        alert("Please enter a command to dispatch.");
+        return;
+    }
+
+    const res = await fetch("/governance/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: cmd })
+    });
+
+    const data = await res.json();
+    renderCommandState(data);
 }
 
 loadData();
