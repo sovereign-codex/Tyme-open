@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Sovereign Continuum</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/panel/style.css">
+    <style>
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: #11141a;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #1c2532;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .card h3 { color: #9fd4ff; margin-top: 0; }
+        .value { font-size: 28px; font-weight: bold; color: #e3f2ff; }
+        .meta { color: #9fb4d1; font-size: 14px; }
+        .chart-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        .path { color: #7fb4ff; font-size: 14px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Tyme Hall</h2>
+        <a href="/panel/index.html">Overview</a>
+        <a href="/panel/governance.html">Governance Summary</a>
+        <a href="/panel/evolution.html">Evolution Graph</a>
+        <a href="/panel/drift.html">Drift & Stability</a>
+        <a href="/panel/heatmap.html">Architecture Heatmap</a>
+        <a href="/panel/phase.html">Phase Plots</a>
+        <a href="/panel/simulation.html">Harmonic Simulation</a>
+        <a href="/panel/continuum.html" class="active">Continuum Meta-Model</a>
+    </div>
+
+    <div class="content">
+        <h1>Sovereign Continuum Meta-Model</h1>
+        <p>The Continuum Engine unifies resonance, basins, coherence, and simulation energy into a single Continuum State Vector (CSV) and persistent Identity Vector.</p>
+
+        <div class="metrics">
+            <div class="card">
+                <h3>Continuum Score</h3>
+                <div class="value" id="score">–</div>
+                <div class="meta">Mean positive alignment of the CSV.</div>
+            </div>
+            <div class="card">
+                <h3>Continuum Drift</h3>
+                <div class="value" id="drift">–</div>
+                <div class="meta">Magnitude of negative curvature across the continuum.</div>
+            </div>
+            <div class="card">
+                <h3>Alignment Index</h3>
+                <div class="value" id="alignment">–</div>
+                <div class="meta">Lower variance in the CSV indicates stronger alignment.</div>
+            </div>
+            <div class="card">
+                <h3>Identity Vector</h3>
+                <div class="value" id="identity-length">–</div>
+                <div class="meta">Persistent identity signature updated each cycle.</div>
+            </div>
+        </div>
+
+        <div class="chart-row">
+            <div class="card">
+                <h3>Continuum State Vector (CSV)</h3>
+                <canvas id="csvChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Continuum Identity Vector</h3>
+                <canvas id="identityChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+            <h3>Continuum Snapshot</h3>
+            <div class="meta" id="version-meta">Version: –</div>
+            <div class="path" id="continuum-path"></div>
+        </div>
+    </div>
+
+<script>
+async function loadContinuum() {
+    const params = new URLSearchParams(window.location.search);
+    const version = params.get('version');
+    const url = `/governance/continuum.json${version ? `?version=${version}` : ''}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.error) {
+        document.getElementById('version-meta').innerText = data.error;
+        return;
+    }
+
+    document.getElementById('score').innerText = Number(data.score || 0).toFixed(4);
+    document.getElementById('drift').innerText = Number(data.drift || 0).toFixed(4);
+    document.getElementById('alignment').innerText = Number(data.alignment || 0).toFixed(4);
+    document.getElementById('identity-length').innerText = (data.identity || []).length;
+    document.getElementById('version-meta').innerText = `Version: ${data.version}`;
+    document.getElementById('continuum-path').innerText = data.path || '';
+
+    const labels = (data.csv || []).map((_, i) => `c${i+1}`);
+    const ctxCsv = document.getElementById('csvChart').getContext('2d');
+    new Chart(ctxCsv, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Continuum State Vector',
+                data: data.csv || [],
+                backgroundColor: 'rgba(79, 195, 247, 0.5)',
+                borderColor: '#4fc3f7',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false }},
+            scales: {
+                x: { ticks: { color: '#c8deff', maxRotation: 0, autoSkip: true, maxTicksLimit: 20 }},
+                y: { ticks: { color: '#c8deff' } }
+            }
+        }
+    });
+
+    const ctxIdentity = document.getElementById('identityChart').getContext('2d');
+    new Chart(ctxIdentity, {
+        type: 'line',
+        data: {
+            labels: (data.identity || []).map((_, i) => `i${i+1}`),
+            datasets: [{
+                label: 'Identity Vector',
+                data: data.identity || [],
+                borderColor: '#9c6bff',
+                backgroundColor: 'rgba(156,107,255,0.25)',
+                tension: 0.3,
+                borderWidth: 2,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            plugins: { legend: { labels: { color: '#e8deff' }}},
+            scales: {
+                x: { ticks: { color: '#c8deff', display: false }},
+                y: { ticks: { color: '#c8deff' } }
+            }
+        }
+    });
+}
+
+loadContinuum();
+</script>
+</body>
+</html>

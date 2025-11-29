@@ -109,6 +109,18 @@ class EpochRecorder:
                 entry.append(f"- Waveform: {sim.get('wave_path')}\n")
             entry.append("- View: /panel/simulation.html\n")
 
+        if "continuum" in data:
+            c = data.get("continuum") or {}
+            entry.append("\n### Sovereign Continuum\n")
+            entry.append(f"- Continuum Score: {c.get('score')}\n")
+            entry.append(f"- Continuum Drift: {c.get('drift')}\n")
+            entry.append(f"- Alignment Index: {c.get('alignment')}\n")
+            identity_vec = c.get("identity") or []
+            entry.append(f"- Identity Vector Length: {len(identity_vec)}\n")
+            if c.get("path"):
+                entry.append(f"- Continuum Map: {c.get('path')}\n")
+            entry.append("- View: /panel/continuum.html\n")
+
         if "epoch_tuned" in data:
             ep = data["epoch_tuned"]
             entry.append("\n### Harmonic Epoch Tuning\n")

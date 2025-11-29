@@ -22,6 +22,7 @@ from backend.phase_plot import PhasePlotEngine
 from backend.attractor import AttractorEngine
 from backend.basin import BasinEngine
 from backend.simulation import HarmonicSimEngine
+from backend.continuum import ContinuumEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -373,6 +374,51 @@ def get_simulation(version: Optional[str] = None):
         "wave_path": wave_path if os.path.exists(wave_path) else None,
         "steps": len(timeline),
     }
+
+
+@app.get("/governance/continuum.json")
+def get_continuum(version: Optional[str] = None):
+    """
+    Returns the Sovereign Continuum meta-model outputs for a given version,
+    defaulting to the latest available continuum state.
+    """
+
+    output_dir = "visuals/continuum"
+    if version:
+        path = os.path.join(output_dir, f"continuum-v{version}.json")
+        if not os.path.exists(path):
+            return {"error": f"Continuum output missing for v{version}"}
+    else:
+        if not os.path.exists(output_dir):
+            return {"error": "Continuum output missing"}
+
+        files = [
+            f for f in os.listdir(output_dir) if f.startswith("continuum-v") and f.endswith(".json")
+        ]
+        if not files:
+            return {"error": "Continuum output missing"}
+
+        def parse_ver(fname: str):
+            ver = fname[len("continuum-v") : -len(".json")]
+            try:
+                return float(ver)
+            except ValueError:
+                return ver
+
+        files.sort(key=parse_ver)
+        latest = files[-1]
+        path = os.path.join(output_dir, latest)
+        version = latest[len("continuum-v") : -len(".json")]
+
+    with open(path) as f:
+        data = json.load(f)
+
+    engine = ContinuumEngine()
+    data.setdefault("identity", engine.load_identity())
+    data.setdefault("version", version)
+    data["path"] = path
+
+    return data
 
 
 @app.post("/autonomous/run")

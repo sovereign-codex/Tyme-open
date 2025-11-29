@@ -28,6 +28,7 @@ from backend.regression_engine import RegressionEngine
 from backend.resonance import ResonanceEngine
 from backend.epoch_tuner import EpochTuner
 from backend.simulation import HarmonicSimEngine
+from backend.continuum import ContinuumEngine
 
 
 class AutonomousEvolution:
@@ -400,6 +401,22 @@ class AutonomousEvolution:
         )
 
         # -------------------------------------------
+        # C36: Sovereign Continuum Meta-Model
+        # -------------------------------------------
+        continuum_engine = ContinuumEngine()
+        output["continuum"] = continuum_engine.process(
+            version=str(version),
+            embedding=embedding,
+            resonance=output.get("resonance", {}),
+            basin=output.get("basin", {}),
+            attractor=output.get("attractor", {}),
+            field=output.get("field", {}),
+            regression=regression_pred if isinstance(regression_pred, dict) else {},
+            epoch=epoch_state,
+            simulation=output.get("simulation", {}),
+        )
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -431,6 +448,7 @@ class AutonomousEvolution:
                 "resonance": output.get("resonance"),
                 "simulation": output.get("simulation"),
                 "epoch_tuned": output.get("epoch_tuned"),
+                "continuum": output.get("continuum"),
             },
             created_by="autonomous"
         )
@@ -446,6 +464,7 @@ class AutonomousEvolution:
         metadata["predictive_convergence"] = pred_conv
         metadata["resonance"] = output.get("resonance")
         metadata["simulation"] = output.get("simulation")
+        metadata["continuum"] = output.get("continuum")
 
         # ------------------------------------------------------------
         # 6. Indexer
@@ -509,6 +528,7 @@ class AutonomousEvolution:
             "resonance_path": output.get("resonance_path"),
             "epoch_tuned": output.get("epoch_tuned"),
             "simulation": output.get("simulation"),
+            "continuum": output.get("continuum"),
         })
 
         # ------------------------------------------------------------
