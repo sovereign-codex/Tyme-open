@@ -77,6 +77,17 @@ class EpochRecorder:
             entry.append(f"- Field Strength File: {f.get('field_path')}\n")
             entry.append(f"- Heatmap File: {f.get('heatmap_path')}\n")
 
+        if "basin" in data:
+            b = data.get("basin") or {}
+            entry.append("\n### Stability Basin\n")
+            entry.append(f"- Class: {b.get('class')}\n")
+            entry.append(f"- Depth: {b.get('basin_depth')}\n")
+            entry.append(f"- Width: {b.get('basin_width')}\n")
+            entry.append(f"- Escape Energy: {b.get('escape_energy')}\n")
+            entry.append(f"- Curvature: {b.get('curvature')}\n")
+            if b.get("path"):
+                entry.append(f"- Map: {b.get('path')}\n")
+
         if "phase" in data:
             p = data.get("phase") or {}
             entry.append("\n### Phase Plot\n")

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from types import SimpleNamespace
-from typing import Optional
+from typing import Optional, Dict, Any
 import os
 import json
 
@@ -20,6 +20,7 @@ from backend.rhythm import RhythmEngine
 from backend.delta_engine import DeltaEngine
 from backend.phase_plot import PhasePlotEngine
 from backend.attractor import AttractorEngine
+from backend.basin import BasinEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -283,6 +284,44 @@ def get_attractor_map():
         return {"error": "Phase plot missing"}
     latest_version = str(points[-1].get("version", "unknown"))
     return engine.forecast(latest_version)
+
+
+@app.get("/governance/basin.json")
+def get_basin_map():
+    """
+    Returns the stability basin metrics for the latest version,
+    computing them if missing.
+    """
+    basin_engine = BasinEngine()
+    phase_points = basin_engine.load_phase()
+    if not phase_points:
+        return {"error": "Phase plot missing"}
+
+    latest_version = str(phase_points[-1].get("version", "latest"))
+    existing = basin_engine.load_basin(latest_version)
+    if existing:
+        return existing
+
+    attractor_path = os.path.join(basin_engine.OUTPUT_DIR, f"attractor-v{latest_version}.json")
+    field_path = os.path.join("visuals/field", f"field-v{latest_version}.json")
+
+    attractor_data: Dict[str, Any] = {}
+    if os.path.exists(attractor_path):
+        with open(attractor_path) as f:
+            attractor_data = json.load(f)
+
+    if attractor_data and "attractor" not in attractor_data:
+        attractor_data = {"attractor": attractor_data}
+
+    field_data: Dict[str, Any] = {}
+    if os.path.exists(field_path):
+        with open(field_path) as f:
+            field_data = json.load(f)
+
+    if not field_data:
+        return {"error": "Field data missing for basin computation"}
+
+    return basin_engine.compute(latest_version, attractor_data, field_data)
 
 
 @app.post("/autonomous/run")

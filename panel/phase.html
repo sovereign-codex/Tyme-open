@@ -48,6 +48,7 @@
         <p>Dimensionality-reduced embeddings (PCA) showing the evolutionary trajectory of Tyme's memory space.</p>
         <div id="status" class="status">Loading phase data...</div>
         <div id="attractor" class="status">Loading attractor forecast...</div>
+        <div id="basin" class="status">Loading stability basin...</div>
         <canvas id="phaseChart" height="420"></canvas>
         <p style="margin-top: 20px; color: #b8c2d1;">Each point represents an architecture version projected onto the first two principal components of its embedding vector.</p>
     </div>
@@ -127,8 +128,35 @@ async function loadAttractor() {
     }
 }
 
+async function loadBasin() {
+    const basinEl = document.getElementById('basin');
+    try {
+        const res = await fetch('/governance/basin.json');
+        const data = await res.json();
+
+        if (data.error) {
+            basinEl.textContent = data.error;
+            return;
+        }
+
+        const cls = data.class || 'unknown';
+        const depth = data.basin_depth ?? 'n/a';
+        const width = data.basin_width ?? 'n/a';
+        const escapeEnergy = data.escape_energy ?? 'n/a';
+        const curvature = data.curvature ?? 'n/a';
+        const path = data.path ? `<br><small>Map saved to ${data.path}</small>` : '';
+
+        basinEl.innerHTML = `Stability Basin: <strong>${cls}</strong><br>` +
+            `Depth ${depth}, Width ${width}, Escape Energy ${escapeEnergy}, Curvature ${curvature}${path}`;
+    } catch (err) {
+        basinEl.textContent = 'Failed to load stability basin data.';
+        console.error(err);
+    }
+}
+
 loadPhase();
 loadAttractor();
+loadBasin();
 </script>
 </body>
 </html>
