@@ -14,19 +14,45 @@
 </head>
 <body>
 
+<div style="position:absolute; top:10px; left:260px; z-index:10;">
+    Compare:
+    <input id="vNew" placeholder="New version">
+    <input id="vOld" placeholder="Old version">
+    <button onclick="reloadWithDelta()">Load Delta</button>
+</div>
+
+<script>
+function reloadWithDelta() {
+    const vNew = document.getElementById("vNew").value;
+    const vOld = document.getElementById("vOld").value;
+    window.location.href = `/panel/lattice.html?version=${vNew}&delta_from=${vOld}`;
+}
+</script>
+
 <div id="graph"></div>
 
 <script>
 const params = new URLSearchParams(window.location.search);
 const version = params.get("version");
+const deltaFrom = params.get("delta_from");
+const url = deltaFrom
+    ? `/visuals/lattice/topology-v${version}.json?delta_from=${deltaFrom}`
+    : `/visuals/lattice/topology-v${version}.json`;
 
-fetch(`/visuals/lattice/topology-v${version}.json`)
+fetch(url)
   .then(r => r.json())
   .then(data => renderGraph(data));
 
 function renderGraph(data) {
     const width = window.innerWidth;
     const height = window.innerHeight;
+
+    const delta = data.delta || {};
+    const layersAdded = new Set(delta.layers_added || []);
+    const layersRemoved = new Set(delta.layers_removed || []);
+    const roleChanges = new Set((delta.role_changes || []).map(r => r.layer));
+    const lifecycleAdded = delta.lifecycle_added || [];
+    const lifecycleRemoved = delta.lifecycle_removed || [];
 
     const svg = d3.select("#graph").append("svg")
         .attr("width", width)
@@ -41,17 +67,44 @@ function renderGraph(data) {
     const link = svg.selectAll("line")
         .data(data.edges)
         .enter().append("line")
-        .attr("stroke", "#555")
-        .attr("stroke-width", 1);
+        .attr("stroke", d => {
+            const sig = `${d.source.id}->${d.target.id}`;
+            if (lifecycleAdded.some(obj => Object.values(obj).includes(d.target.id)))
+                return "#00A8FF"; // blue for added flows
+            if (lifecycleRemoved.some(obj => Object.values(obj).includes(d.target.id)))
+                return "#FF4E4E"; // red for removed flows
+            return "#555";
+        })
+        .attr("stroke-width", d => {
+            const sig = `${d.source.id}->${d.target.id}`;
+            if (lifecycleAdded.some(obj => Object.values(obj).includes(d.target.id)))
+                return 3;
+            if (lifecycleRemoved.some(obj => Object.values(obj).includes(d.target.id)))
+                return 3;
+            return 1;
+        });
 
     const node = svg.selectAll("circle")
         .data(data.nodes)
         .enter().append("circle")
         .attr("r", 14)
         .attr("fill", d => {
+            // Default colors
             if (d.type === "root") return "#6dd5fa";
-            if (d.type === "layer") return "#b2f7ef";
-            return "#ffdfba";
+            if (d.type === "layer") {
+
+                if (layersAdded.has(d.id))
+                    return "#7DFF7D";      // green for added
+
+                if (layersRemoved.has(d.id))
+                    return "#FF4E4E";      // red for removed (ghost)
+
+                if (roleChanges.has(d.id))
+                    return "#FFE76D";      // yellow for role updates
+
+                return "#b2f7ef";          // unchanged layer
+            }
+            return "#ffdfba";              // lifecycle nodes
         })
         .call(drag(simulation));
 
