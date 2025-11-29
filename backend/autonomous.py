@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import time
 from typing import Dict, Any
 
@@ -22,6 +24,8 @@ from backend.embedding_engine import EmbeddingEngine
 from backend.phase_plot import PhasePlotEngine
 from backend.attractor import AttractorEngine
 from backend.basin import BasinEngine
+from backend.regression_engine import RegressionEngine
+from backend.resonance import ResonanceEngine
 
 
 class AutonomousEvolution:
@@ -322,6 +326,48 @@ class AutonomousEvolution:
         output["basin"] = basin_engine.compute(str(version), output.get("attractor", {}), field)
 
         # -------------------------------------------
+        # C33: Resonance Guidance Loop
+        # -------------------------------------------
+        regression_engine = RegressionEngine()
+        try:
+            regression_engine.add_record(
+                str(version),
+                embedding,
+                field,
+                output.get("strategy", {}),
+                {
+                    "spec": spec,
+                    "convergence_score": convergence_score,
+                    "guardian_score": guardian_score,
+                    "steering_score": steering_score,
+                },
+            )
+            regression_pred = regression_engine.predict(str(version))
+        except Exception:
+            regression_pred = {"error": "regression_failure"}
+
+        resonance_engine = ResonanceEngine()
+        resonance = resonance_engine.process(
+            str(version),
+            embedding,
+            field,
+            output.get("attractor", {}),
+            output.get("basin", {}),
+            regression_pred if isinstance(regression_pred, dict) else {},
+            output.get("strategy", {}),
+        )
+        output["resonance"] = resonance
+
+        try:
+            os.makedirs("chronicle", exist_ok=True)
+            resonance_path = os.path.join("chronicle", "resonance-latest.json")
+            with open(resonance_path, "w") as f:
+                json.dump({"version": version, **resonance}, f, indent=2)
+            output["resonance_path"] = resonance_path
+        except Exception:
+            output["resonance_path"] = None
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -350,6 +396,7 @@ class AutonomousEvolution:
                 "steering_actions": steering.get("actions", []),
                 "predictive_convergence": pred_conv,
                 "field": output.get("field"),
+                "resonance": output.get("resonance"),
             },
             created_by="autonomous"
         )
@@ -363,6 +410,7 @@ class AutonomousEvolution:
         metadata["agent_id"] = "autonomous-cycle"
         metadata["timestamp"] = time.time()
         metadata["predictive_convergence"] = pred_conv
+        metadata["resonance"] = output.get("resonance")
 
         # ------------------------------------------------------------
         # 6. Indexer
@@ -393,6 +441,7 @@ class AutonomousEvolution:
         recorder = EpochRecorder()
 
         # Build a Tyme-style narrative summary
+        resonance_mode = (output.get("resonance") or {}).get("mode")
         summary_text = (
             f"Version {version} emerged from a coherence score of "
             f"{guardian_score} with convergence at {convergence_score}. "
@@ -400,6 +449,8 @@ class AutonomousEvolution:
             f"The lattice expanded its harmonic definition and "
             f"strengthened its sovereign alignment."
         )
+        if resonance_mode:
+            summary_text += f" Resonance guidance signaled **{resonance_mode}** mode to tune the evolution parameters."
 
         recorder.write_epoch({
             "version": version,
@@ -419,6 +470,8 @@ class AutonomousEvolution:
             "phase": output.get("phase_plot"),
             "attractor": output.get("attractor"),
             "basin": output.get("basin"),
+            "resonance": output.get("resonance"),
+            "resonance_path": output.get("resonance_path"),
         })
 
         # ------------------------------------------------------------
