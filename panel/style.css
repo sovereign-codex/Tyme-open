@@ -27,6 +27,11 @@ body {
     font-size: 15px;
 }
 
+.sidebar a.active {
+    color: #fff;
+    font-weight: bold;
+}
+
 .sidebar a:hover {
     color: #fff;
 }
