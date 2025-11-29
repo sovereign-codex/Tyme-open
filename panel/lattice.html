@@ -19,6 +19,7 @@
     <input id="vNew" placeholder="New version">
     <input id="vOld" placeholder="Old version">
     <button onclick="reloadWithDelta()">Load Delta</button>
+    <button onclick="loadPredictive()">Predict Next</button>
 </div>
 
 <script>
@@ -26,6 +27,11 @@ function reloadWithDelta() {
     const vNew = document.getElementById("vNew").value;
     const vOld = document.getElementById("vOld").value;
     window.location.href = `/panel/lattice.html?version=${vNew}&delta_from=${vOld}`;
+}
+
+function loadPredictive() {
+    const vNew = document.getElementById("vNew").value;
+    window.location.href = `/panel/lattice.html?version=${vNew}&predict=next`;
 }
 </script>
 
@@ -35,9 +41,16 @@ function reloadWithDelta() {
 const params = new URLSearchParams(window.location.search);
 const version = params.get("version");
 const deltaFrom = params.get("delta_from");
-const url = deltaFrom
-    ? `/visuals/lattice/topology-v${version}.json?delta_from=${deltaFrom}`
-    : `/visuals/lattice/topology-v${version}.json`;
+let url;
+const predict = params.get("predict");
+
+if (predict === "next") {
+    url = `/visuals/lattice/predictive.json?version=${version}`;
+} else if (deltaFrom) {
+    url = `/visuals/lattice/topology-v${version}.json?delta_from=${deltaFrom}`;
+} else {
+    url = `/visuals/lattice/topology-v${version}.json`;
+}
 
 fetch(url)
   .then(r => r.json())
@@ -53,6 +66,11 @@ function renderGraph(data) {
     const roleChanges = new Set((delta.role_changes || []).map(r => r.layer));
     const lifecycleAdded = delta.lifecycle_added || [];
     const lifecycleRemoved = delta.lifecycle_removed || [];
+
+    const isPredictive = data.predictive === true;
+
+    // predictive color rules
+    const predictiveNodes = new Set((data.nodes || []).map(n => n.id));
 
     const svg = d3.select("#graph").append("svg")
         .attr("width", width)
@@ -90,8 +108,23 @@ function renderGraph(data) {
         .attr("r", 14)
         .attr("fill", d => {
             // Default colors
-            if (d.type === "root") return "#6dd5fa";
+            if (d.type === "root") {
+                if (isPredictive) return "#A56DFF";
+                return "#6dd5fa";
+            }
             if (d.type === "layer") {
+
+                if (isPredictive && layersAdded.has(d.id))
+                    return "#98FF98";   // bright green for predicted additions
+
+                if (isPredictive && roleChanges.has(d.id))
+                    return "#FFD86D";   // gold for predicted role shifts
+
+                if (isPredictive && layersRemoved.has(d.id))
+                    return "#D9534F";   // predictive removal: deeper red
+
+                if (isPredictive)
+                    return "#D18CFF"; // lavender-purple
 
                 if (layersAdded.has(d.id))
                     return "#7DFF7D";      // green for added

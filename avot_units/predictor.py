@@ -64,6 +64,8 @@ class AvotPredictor(BaseAVOT):
             }
         }
 
+        predicted["_predictive"] = True
+
         # Baseline: inherit last layer count
         last_layer_count = 3
         if "layers" in task.payload:
