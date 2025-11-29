@@ -19,6 +19,7 @@ from backend.autonomous import AutonomousEvolution
 from backend.rhythm import RhythmEngine
 from backend.delta_engine import DeltaEngine
 from backend.phase_plot import PhasePlotEngine
+from backend.attractor import AttractorEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -269,6 +270,19 @@ def get_phase_plot():
     """
     engine = PhasePlotEngine()
     return engine.compute()
+
+
+@app.get("/governance/attractor.json")
+def get_attractor_map():
+    """
+    Returns the latest attractor classification using the phase history.
+    """
+    engine = AttractorEngine()
+    points = engine.load_phase()
+    if not points:
+        return {"error": "Phase plot missing"}
+    latest_version = str(points[-1].get("version", "unknown"))
+    return engine.forecast(latest_version)
 
 
 @app.post("/autonomous/run")

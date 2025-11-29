@@ -47,6 +47,7 @@
         <h1>Memory Phase Plot</h1>
         <p>Dimensionality-reduced embeddings (PCA) showing the evolutionary trajectory of Tyme's memory space.</p>
         <div id="status" class="status">Loading phase data...</div>
+        <div id="attractor" class="status">Loading attractor forecast...</div>
         <canvas id="phaseChart" height="420"></canvas>
         <p style="margin-top: 20px; color: #b8c2d1;">Each point represents an architecture version projected onto the first two principal components of its embedding vector.</p>
     </div>
@@ -100,7 +101,34 @@ async function loadPhase() {
     }
 }
 
+async function loadAttractor() {
+    const attrEl = document.getElementById('attractor');
+    try {
+        const res = await fetch('/governance/attractor.json');
+        const data = await res.json();
+
+        if (data.error) {
+            attrEl.textContent = data.error;
+            return;
+        }
+
+        const info = data.attractor || {};
+        const type = info.type || 'unknown';
+        const strength = info.strength !== undefined ? info.strength : 'n/a';
+        const version = data.version ? `v${data.version}` : 'latest';
+
+        attrEl.innerHTML = `Attractor ${version}: <strong>${type}</strong> (strength ${strength})`;
+        if (data.path) {
+            attrEl.innerHTML += `<br><small>Map saved to ${data.path}</small>`;
+        }
+    } catch (err) {
+        attrEl.textContent = 'Failed to load attractor data.';
+        console.error(err);
+    }
+}
+
 loadPhase();
+loadAttractor();
 </script>
 </body>
 </html>

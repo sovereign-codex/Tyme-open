@@ -4,6 +4,7 @@ import time
 from typing import Dict, Any
 
 from backend.drift_monitor import DriftMonitor
+from backend.attractor import AttractorEngine
 
 
 class EpochEngine:
@@ -37,6 +38,11 @@ class EpochEngine:
 
         stability = analysis.get("stability_index", 0)
         drift_count = len(analysis.get("drift_flags", []))
+
+        attractor_engine = AttractorEngine()
+        phase_points = attractor_engine.load_phase()
+        attractor = attractor_engine.detect_attractor(phase_points) if phase_points else {"type": "unknown", "strength": 0}
+        attractor_type = attractor.get("type")
 
         # ---------------------------
         # EPOCH DETERMINATION RULES
@@ -97,9 +103,33 @@ class EpochEngine:
                 "rhythm": "ACTIVE",
             }
 
+        # Attractor-aware adjustments
+        if attractor_type in ("drift_attractor", "strange_attractor"):
+            epoch = "CORRECTION"
+            params.update({
+                "predictor_weights": {"minimal": 0.6, "semantic": 0.3, "deep": 0.1},
+                "guardian_strictness": max(params.get("guardian_strictness", 0.8), 0.8),
+                "convergence_sensitivity": max(params.get("convergence_sensitivity", 0.9), 0.9),
+                "rhythm": "ALERT",
+            })
+        elif attractor_type in ("fixed_point", "harmonic_basin") and stability >= 0.60:
+            epoch = "HARMONIC"
+            params.update({
+                "guardian_strictness": max(params.get("guardian_strictness", 0.6), 0.5),
+                "convergence_sensitivity": max(params.get("convergence_sensitivity", 0.5), 0.4),
+                "rhythm": "CALM",
+            })
+        elif attractor_type == "limit_cycle" and params.get("rhythm") != "ALERT":
+            params["rhythm"] = "ACTIVE"
+
         return {
             "epoch": epoch,
             "stability_index": stability,
             "drift_count": drift_count,
             "parameters": params,
+            "attractor": {
+                "type": attractor_type,
+                "strength": attractor.get("strength", 0),
+                "points": len(phase_points),
+            },
         }
