@@ -13,6 +13,7 @@ from avot_units.pr_generator import PRGenerator
 from avot_units.indexer import AvotIndexer
 from backend.github_api import GitHubAPI
 from backend.drift_monitor import DriftMonitor
+from backend.commands import CommandEngine
 from backend.epochs import EpochEngine
 from backend.heatmap_analyzer import HeatmapAnalyzer
 from backend.autonomous import AutonomousEvolution
@@ -35,6 +36,8 @@ engine = SimpleNamespace(
         output=AvotConvergence().act(SimpleNamespace(payload=task.payload))
     ),
 )
+
+COMMAND_STATE_PATH = "memory/temple/command_state.json"
 
 
 def _version_key(val: str):
@@ -82,6 +85,26 @@ def load_harmonic_state(version: Optional[str] = None):
     return state
 
 
+def aggregate_command_state(commands):
+    state = {"resonance": {}, "epoch": {}, "structural": {}, "meta": {}}
+
+    for entry in commands:
+        if not isinstance(entry, dict):
+            continue
+        state["resonance"].update(entry.get("resonance_update") or {})
+        state["epoch"].update(entry.get("epoch_update") or {})
+        state["structural"].update(entry.get("structural_update") or {})
+        state["meta"].update(entry.get("meta") or {})
+
+    return state
+
+
+def persist_command_state(state):
+    os.makedirs("memory/temple", exist_ok=True)
+    with open(COMMAND_STATE_PATH, "w") as f:
+        json.dump(state, f, indent=2)
+
+
 class AutoPRRequest(BaseModel):
     title: str
     summary: str
@@ -126,6 +149,10 @@ class SimulationRequest(BaseModel):
     resonance: Dict[str, Any] = {}
     epoch: Dict[str, Any] = {}
     steps: int = 50
+
+
+class CommandRequest(BaseModel):
+    command: str
 
 
 @app.get("/")
@@ -347,6 +374,47 @@ def get_governance_summary():
 
     return {
         "latest": latest
+    }
+
+
+@app.get("/governance/command")
+def get_command_state():
+    """
+    Returns the current harmonic command log and aggregated state.
+    """
+
+    engine = CommandEngine()
+    log = engine.load_log().get("commands", [])
+    state = aggregate_command_state(log)
+    persist_command_state(state)
+
+    return {
+        "state": state,
+        "log": list(reversed(log[-20:])),
+        "log_path": CommandEngine.LOG_PATH,
+        "state_path": COMMAND_STATE_PATH,
+    }
+
+
+@app.post("/governance/command")
+def dispatch_command(request: CommandRequest):
+    """
+    Interprets a natural-language or symbolic command and logs it to the
+    Memory Temple while updating aggregated harmonic state hints.
+    """
+
+    engine = CommandEngine()
+    parsed = engine.process(request.command)
+    log = engine.load_log().get("commands", [])
+    state = aggregate_command_state(log)
+    persist_command_state(state)
+
+    return {
+        "parsed": parsed,
+        "state": state,
+        "log": list(reversed(log[-20:])),
+        "log_path": CommandEngine.LOG_PATH,
+        "state_path": COMMAND_STATE_PATH,
     }
 
 
