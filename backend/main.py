@@ -23,6 +23,10 @@ from backend.attractor import AttractorEngine
 from backend.basin import BasinEngine
 from backend.simulation import HarmonicSimEngine
 from backend.continuum import ContinuumEngine
+from backend.harmonic_state import HarmonicState
+from backend.resonance import ResonanceEngine
+from backend.epoch_tuner import EpochTuner
+from backend.recovery import RecoveryEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -31,6 +35,51 @@ engine = SimpleNamespace(
         output=AvotConvergence().act(SimpleNamespace(payload=task.payload))
     ),
 )
+
+
+def _version_key(val: str):
+    try:
+        return (0, float(val))
+    except ValueError:
+        return (1, val)
+
+
+def discover_latest_version():
+    """
+    Attempts to discover the latest available version across harmonic artifacts.
+    """
+
+    version_tokens = []
+    patterns = [
+        ("visuals/continuum", "continuum-v"),
+        ("visuals/resonance", "resonance-v"),
+        ("visuals/phase", "attractor-v"),
+        ("visuals/phase", "basin-v"),
+        ("visuals/field", "field-v"),
+        (HarmonicSimEngine.OUTPUT_DIR, "wave-v"),
+    ]
+
+    for directory, prefix in patterns:
+        if not os.path.exists(directory):
+            continue
+        for fname in os.listdir(directory):
+            if fname.startswith(prefix) and fname.endswith(".json"):
+                ver = fname[len(prefix) : -len(".json")]
+                version_tokens.append(ver)
+
+    if not version_tokens:
+        return "latest"
+
+    version_tokens = sorted(set(version_tokens), key=_version_key)
+    return version_tokens[-1]
+
+
+def load_harmonic_state(version: Optional[str] = None):
+    version = version or discover_latest_version()
+    harmonic_state = HarmonicState()
+    state = harmonic_state.get_state(version)
+    state["version"] = version
+    return state
 
 
 class AutoPRRequest(BaseModel):
@@ -44,9 +93,119 @@ class AutoPRRequest(BaseModel):
     token: Optional[str] = None
 
 
+class ResonanceInfluenceRequest(BaseModel):
+    mode: str
+    params: Dict[str, Any] = {}
+
+
+class EpochTuneRequest(BaseModel):
+    epoch_state: Dict[str, Any] = {}
+    resonance: Dict[str, Any] = {}
+    field: Dict[str, Any] = {}
+    attractor: Dict[str, Any] = {}
+    basin: Dict[str, Any] = {}
+    regression: Dict[str, Any] = {}
+
+
+class RecoveryRequest(BaseModel):
+    version: Optional[str] = None
+    spec: Dict[str, Any] = {}
+    continuum: Dict[str, Any] = {}
+    resonance: Dict[str, Any] = {}
+    basin: Dict[str, Any] = {}
+    attractor: Dict[str, Any] = {}
+    epoch: Dict[str, Any] = {}
+    simulation: Dict[str, Any] = {}
+
+
+class SimulationRequest(BaseModel):
+    version: Optional[str] = None
+    spec: Dict[str, Any] = {}
+    field: Dict[str, Any] = {}
+    basin: Dict[str, Any] = {}
+    resonance: Dict[str, Any] = {}
+    epoch: Dict[str, Any] = {}
+    steps: int = 50
+
+
 @app.get("/")
 def read_root():
     return {"status": "ok"}
+
+
+@app.get("/harmonic/state")
+def get_harmonic_state(version: Optional[str] = None):
+    """
+    Aggregates harmonic artifacts for a given version to drive the navigation UI.
+    """
+
+    return load_harmonic_state(version)
+
+
+@app.post("/harmonic/resonance/influence")
+def influence_resonance(request: ResonanceInfluenceRequest):
+    engine = ResonanceEngine()
+    influenced = engine.influence_parameters(request.mode, request.params or {})
+
+    return {
+        "mode": request.mode,
+        "parameters": request.params or {},
+        "influenced": influenced,
+        "available_modes": ResonanceEngine.MODES,
+    }
+
+
+@app.post("/harmonic/epoch/tune")
+def tune_epoch(request: EpochTuneRequest):
+    tuner = EpochTuner()
+    tuned = tuner.tune(
+        request.epoch_state or {},
+        request.resonance or {},
+        request.field or {},
+        request.attractor or {},
+        request.basin or {},
+        request.regression or {},
+    )
+
+    return {
+        "tuned": tuned,
+        "mode": (request.resonance or {}).get("mode"),
+    }
+
+
+@app.post("/harmonic/recovery")
+def harmonic_recovery(request: RecoveryRequest):
+    version = request.version or discover_latest_version()
+    engine = RecoveryEngine()
+
+    result = engine.process(
+        version,
+        request.spec or {},
+        request.continuum or {},
+        request.resonance or {},
+        request.basin or {},
+        request.attractor or {},
+        request.epoch or {},
+        request.simulation or {},
+    )
+
+    result["version"] = version
+    return result
+
+
+@app.post("/harmonic/simulate")
+def harmonic_simulate(request: SimulationRequest):
+    version = request.version or discover_latest_version()
+    engine = HarmonicSimEngine()
+    return engine.simulate(
+        version,
+        request.spec or {},
+        request.field or {},
+        request.basin or {},
+        request.resonance or {},
+        request.epoch or {},
+        steps=request.steps or 50,
+    )
 
 
 @app.get("/visuals/lattice/predictive.json")
