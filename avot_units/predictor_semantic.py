@@ -35,4 +35,6 @@ class AvotPredictorSemantic(BaseAVOT):
             }
         }
 
+        predicted["_predictive"] = True
+
         return {"predicted_spec": predicted, "mode": "semantic"}

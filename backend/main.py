@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from types import SimpleNamespace
 from typing import Optional
 import os
+import json
 
 from avot_units.convergence import AvotConvergence
 from avot_units.fabricator import Fabricator
@@ -41,6 +42,18 @@ class AutoPRRequest(BaseModel):
 @app.get("/")
 def read_root():
     return {"status": "ok"}
+
+
+@app.get("/visuals/lattice/predictive.json")
+def get_predictive_topology(version: str):
+    """
+    Returns the predictive topology for version+1.
+    """
+    path = f"visuals/lattice/predictive-topology-v{version}.json"
+    if not os.path.exists(path):
+        return {"error": "Predictive topology not found"}
+    with open(path) as f:
+        return json.load(f)
 
 
 @app.post("/avot/fabricator/auto-pr")

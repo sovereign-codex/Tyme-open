@@ -67,6 +67,19 @@ class AutonomousEvolution:
         selected = engine.run("AVOT-selector", selector_task).output
         predicted_spec = selected.get("selected_spec") or {}
 
+        # -------------------------------------------
+        # C23: Generate predictive topology for v(next)
+        # -------------------------------------------
+        from backend.topology import TopologyExtractor
+
+        drift_entries = DriftMonitor().load_entries()
+        latest_version = drift_entries[-1]["version"] if drift_entries else "0"
+        predictive_version = f"{float(latest_version) + 1}"
+        topo = TopologyExtractor()
+        predicted_topology_path = topo.extract(predictive_version, predicted_spec)
+
+        output["predictive_topology"] = predicted_topology_path
+
         # ------------------------------------------------------------
         # 2. Fabricate (predictive mode)
         # ------------------------------------------------------------

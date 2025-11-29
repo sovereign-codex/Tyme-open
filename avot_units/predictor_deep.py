@@ -24,4 +24,6 @@ class AvotPredictorDeep(BaseAVOT):
             "lifecycle": base.get("lifecycle", {}),
         }
 
+        predicted["_predictive"] = True
+
         return {"predicted_spec": predicted, "mode": "deep"}

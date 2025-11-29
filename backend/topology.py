@@ -23,6 +23,7 @@ class TopologyExtractor:
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
 
     def extract(self, version: str, spec: Dict[str, Any]) -> str:
+        predictive = spec.get("_predictive", False)
         root = spec.get("root_node", "sovereign")
         layers = spec.get("layers", [])
         lifecycle = spec.get("lifecycle", {})
@@ -66,10 +67,12 @@ class TopologyExtractor:
         topology = {
             "nodes": nodes,
             "edges": edges,
-            "delta": delta
+            "delta": delta,
+            "predictive": predictive
         }
 
-        path = os.path.join(self.OUTPUT_DIR, f"topology-v{version}.json")
+        filename = f"predictive-topology-v{version}.json" if predictive else f"topology-v{version}.json"
+        path = os.path.join(self.OUTPUT_DIR, filename)
         with open(path, "w") as f:
             json.dump(topology, f, indent=2)
 
