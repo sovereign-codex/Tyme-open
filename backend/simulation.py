@@ -36,6 +36,10 @@ class HarmonicSimEngine:
             for i, l in enumerate(layers)
         }
 
+        if not state:
+            # ensure a baseline node exists to keep the simulation stable
+            state = {"root": 1.0}
+
         # simulation params influenced by basin & epoch
         depth = basin.get("basin_depth", 0.5)
         escape_energy = basin.get("escape_energy", 0.5)

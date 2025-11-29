@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Hall — Harmonic Navigation</title>
+    <link rel="stylesheet" href="/panel/style.css">
+    <style>
+        body { background: #0b0d12; color: #eef; font-family: Arial, sans-serif; }
+        h1 { color: #9fe3ff; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+        .card { background: #11141a; padding: 16px; border-radius: 10px; border: 1px solid #1f2731; }
+        .card h3 { margin-top: 0; color: #b5ddff; }
+        .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #1c2534; color: #9fe3ff; font-size: 12px; margin-bottom: 8px; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+        textarea { width: 100%; min-height: 120px; background: #0f1119; color: #e5edff; border: 1px solid #1f2731; border-radius: 8px; padding: 10px; font-family: monospace; }
+        button { background: #1d9bf0; border: none; color: #fff; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+        button:hover { background: #1185d8; }
+        input, select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #1f2731; background: #0f1119; color: #e5edff; }
+        pre { background: #0f1119; padding: 12px; border-radius: 10px; overflow: auto; border: 1px solid #1f2731; }
+        .badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+        .small { font-size: 12px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Tyme Hall</h2>
+        <a href="/panel/index.html">Overview</a>
+        <a href="/panel/governance.html">Governance Summary</a>
+        <a href="/panel/evolution.html">Evolution Graph</a>
+        <a href="/panel/drift.html">Drift & Stability</a>
+        <a href="/panel/heatmap.html">Architecture Heatmap</a>
+        <a href="/panel/phase.html">Phase Plots</a>
+        <a href="/panel/simulation.html">Harmonic Simulation</a>
+        <a href="/panel/harmonic.html" class="active">Harmonic Navigation</a>
+        <a href="/panel/continuum.html">Continuum Meta-Model</a>
+    </div>
+
+    <div class="content">
+        <h1>Harmonic Navigation UI</h1>
+        <p>Unified control surface for resonance guidance, epoch tuning, recovery, and simulation. Use the controls below to pull the current harmonic state and influence the system.</p>
+
+        <div class="card" style="margin-bottom:16px;">
+            <div class="badge-row">
+                <span class="pill">C38</span>
+                <span class="pill" id="stateVersion">version: -</span>
+            </div>
+            <div class="grid">
+                <div>
+                    <label for="versionInput" class="small">Version token</label>
+                    <input id="versionInput" placeholder="leave blank for latest" />
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:8px;">
+                    <button onclick="loadState()">Load harmonic state</button>
+                    <button onclick="refreshState(true)" style="background:#6366f1;">Reset to latest</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" id="stateGrid">
+            <div class="card">
+                <h3>Continuum</h3>
+                <div id="continuumSummary" class="small">Awaiting data…</div>
+            </div>
+            <div class="card">
+                <h3>Resonance</h3>
+                <div id="resonanceSummary" class="small">Awaiting data…</div>
+            </div>
+            <div class="card">
+                <h3>Basin & Attractor</h3>
+                <div id="basinSummary" class="small">Awaiting data…</div>
+            </div>
+            <div class="card">
+                <h3>Field</h3>
+                <div id="fieldSummary" class="small">Awaiting data…</div>
+            </div>
+            <div class="card">
+                <h3>Simulation</h3>
+                <div id="simulationSummary" class="small">Awaiting data…</div>
+            </div>
+            <div class="card">
+                <h3>Epoch</h3>
+                <div id="epochSummary" class="small">Awaiting data…</div>
+            </div>
+        </div>
+
+        <h2 style="margin-top:26px;">Controls</h2>
+        <div class="controls">
+            <div class="card">
+                <h3>Resonance Influence</h3>
+                <label class="small" for="modeSelect">Resonance mode</label>
+                <select id="modeSelect">
+                    <option value="harmonic_ascension">harmonic_ascension</option>
+                    <option value="stability_preservation">stability_preservation</option>
+                    <option value="drift_avoidance">drift_avoidance</option>
+                    <option value="expansion_wave">expansion_wave</option>
+                    <option value="resonant_correction">resonant_correction</option>
+                </select>
+                <label class="small" for="resonanceParams">Base parameters (JSON)</label>
+                <textarea id="resonanceParams">{
+  "steering_strength": 0.4,
+  "predictor_boost": "balanced"
+}</textarea>
+                <button onclick="applyResonance()" style="margin-top:8px;">Influence parameters</button>
+                <pre id="resonanceOutput">Waiting…</pre>
+            </div>
+
+            <div class="card">
+                <h3>Epoch Tuning</h3>
+                <p class="small">Uses current harmonic state to adjust epoch parameters.</p>
+                <button onclick="tuneEpoch()">Tune epoch</button>
+                <pre id="epochOutput">Waiting…</pre>
+            </div>
+
+            <div class="card">
+                <h3>Recovery Sweep</h3>
+                <p class="small">Runs structural + harmonic recovery using the aggregated state.</p>
+                <button onclick="runRecovery()" style="background:#f97316;">Initiate recovery</button>
+                <pre id="recoveryOutput">Waiting…</pre>
+            </div>
+
+            <div class="card">
+                <h3>Simulation Run</h3>
+                <label class="small" for="stepsInput">Steps</label>
+                <input id="stepsInput" type="number" value="50" min="10" max="500" />
+                <label class="small" for="specInput">Optional Spec (JSON)</label>
+                <textarea id="specInput" placeholder="Leave blank to derive layers from field strengths"></textarea>
+                <button onclick="runSimulation()" style="margin-top:8px; background:#10b981;">Simulate</button>
+                <pre id="simulationOutput">Waiting…</pre>
+            </div>
+        </div>
+    </div>
+
+<script>
+let harmonicState = {};
+
+function parseJSON(text, fallback) {
+    try {
+        if (!text) return fallback;
+        return JSON.parse(text);
+    } catch (err) {
+        console.warn('Failed to parse JSON, using fallback.', err);
+        return fallback;
+    }
+}
+
+function summarizeContinuum(data) {
+    if (!data || Object.keys(data).length === 0) return 'No continuum data available.';
+    return `Score: ${data.score ?? '-'} | Drift: ${data.drift ?? '-'} | Alignment: ${data.alignment ?? '-'}`;
+}
+
+function summarizeResonance(data) {
+    if (!data || Object.keys(data).length === 0) return 'No resonance data available.';
+    return `Mode: ${data.mode ?? '-'} | RV len: ${(data.resonance_vector || []).length} | Gradient len: ${(data.resonance_gradient || []).length}`;
+}
+
+function summarizeBasin(basin, attractor) {
+    if (!basin || Object.keys(basin).length === 0) return 'No basin data available.';
+    const cls = basin.class || 'unknown';
+    const depth = basin.basin_depth ?? '-';
+    const at = attractor && attractor.attractor ? attractor.attractor.type : 'unknown';
+    return `Class: ${cls} | Depth: ${depth} | Attractor: ${at}`;
+}
+
+function summarizeField(field) {
+    if (!field || Object.keys(field).length === 0) return 'No field data available.';
+    const nodes = Object.keys(field.field_strengths || {});
+    return `Coherence: ${field.coherence_index ?? '-'} | Nodes: ${nodes.length}`;
+}
+
+function summarizeSimulation(sim) {
+    if (!sim || Object.keys(sim).length === 0) return 'No simulation data available.';
+    const entries = Object.entries(sim || {});
+    return `Wave entries: ${entries.length} | Peak sample: ${entries.slice(0,3).map(([k,v]) => `${k}:${v}`).join(', ')}`;
+}
+
+function summarizeEpoch(epoch) {
+    if (!epoch || Object.keys(epoch).length === 0) return 'No epoch state found.';
+    const params = epoch.parameters || epoch;
+    return `Mode: ${params.epoch_mode || epoch.mode || 'unknown'} | Horizon: ${params.horizon ?? '-'} | Strictness: ${params.strictness ?? '-'}`;
+}
+
+function refreshSummaries() {
+    document.getElementById('stateVersion').textContent = `version: ${harmonicState.version || '-'}`;
+    document.getElementById('continuumSummary').textContent = summarizeContinuum(harmonicState.continuum);
+    document.getElementById('resonanceSummary').textContent = summarizeResonance(harmonicState.resonance);
+    document.getElementById('basinSummary').textContent = summarizeBasin(harmonicState.basin, harmonicState.attractor);
+    document.getElementById('fieldSummary').textContent = summarizeField(harmonicState.field);
+    document.getElementById('simulationSummary').textContent = summarizeSimulation(harmonicState.simulation);
+    document.getElementById('epochSummary').textContent = summarizeEpoch(harmonicState.epoch);
+}
+
+function deriveSpecFromField() {
+    const strengths = (harmonicState.field || {}).field_strengths || {};
+    const nodes = Object.keys(strengths);
+    if (!nodes.length) return {};
+    return { layers: nodes.map(name => ({ name, notes: `Derived from field strength ${strengths[name]}` })) };
+}
+
+async function loadState() {
+    const version = document.getElementById('versionInput').value.trim();
+    const url = version ? `/harmonic/state?version=${encodeURIComponent(version)}` : '/harmonic/state';
+    const res = await fetch(url);
+    harmonicState = await res.json();
+    refreshSummaries();
+}
+
+async function refreshState(reset=false) {
+    if (reset) {
+        document.getElementById('versionInput').value = '';
+    }
+    await loadState();
+}
+
+async function applyResonance() {
+    const mode = document.getElementById('modeSelect').value;
+    const params = parseJSON(document.getElementById('resonanceParams').value, {});
+    const res = await fetch('/harmonic/resonance/influence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, params })
+    });
+    const data = await res.json();
+    document.getElementById('resonanceOutput').textContent = JSON.stringify(data, null, 2);
+}
+
+async function tuneEpoch() {
+    const payload = {
+        epoch_state: harmonicState.epoch || {},
+        resonance: harmonicState.resonance || {},
+        field: harmonicState.field || {},
+        attractor: harmonicState.attractor || {},
+        basin: harmonicState.basin || {},
+        regression: (harmonicState.continuum || {}).regression || {},
+    };
+
+    const res = await fetch('/harmonic/epoch/tune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    document.getElementById('epochOutput').textContent = JSON.stringify(data, null, 2);
+}
+
+async function runRecovery() {
+    const payload = {
+        version: harmonicState.version,
+        spec: (harmonicState.continuum || {}).spec || {},
+        continuum: harmonicState.continuum || {},
+        resonance: harmonicState.resonance || {},
+        basin: harmonicState.basin || {},
+        attractor: harmonicState.attractor || {},
+        epoch: harmonicState.epoch || {},
+        simulation: harmonicState.simulation || {},
+    };
+
+    const res = await fetch('/harmonic/recovery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    document.getElementById('recoveryOutput').textContent = JSON.stringify(data, null, 2);
+}
+
+async function runSimulation() {
+    const steps = parseInt(document.getElementById('stepsInput').value || '50', 10);
+    const specOverride = parseJSON(document.getElementById('specInput').value, null);
+    const payload = {
+        version: harmonicState.version,
+        spec: specOverride || deriveSpecFromField(),
+        field: harmonicState.field || {},
+        basin: harmonicState.basin || {},
+        resonance: harmonicState.resonance || {},
+        epoch: harmonicState.epoch || {},
+        steps: isNaN(steps) ? 50 : steps,
+    };
+
+    const res = await fetch('/harmonic/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    document.getElementById('simulationOutput').textContent = JSON.stringify(data, null, 2);
+}
+
+refreshState(true);
+</script>
+</body>
+</html>
