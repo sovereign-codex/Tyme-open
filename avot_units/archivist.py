@@ -76,6 +76,16 @@ class Archivist:
                     md += f"- {a}\n"
             md += "\n"
 
+        predictive = payload.get("predictive_convergence")
+        if predictive:
+            md += "## Predictive Convergence Gate\n"
+            md += f"- Predictive Guardian Score: {predictive.get('predictive_guardian_score')}\n"
+            md += f"- Predictive Convergence Score: {predictive.get('predictive_convergence_score')}\n"
+            md += f"- Composite Predictive Score: {predictive.get('predictive_score')}\n"
+            md += f"- Threshold: {predictive.get('predictive_threshold')}\n"
+            md += f"- Approved: {predictive.get('predictive_approved')}\n"
+            md += f"- Recommended Action: {predictive.get('recommended_action')}\n\n"
+
         md += "\n## Epoch Chronicle\n"
         md += f"[View Epoch Log](/chronicle/epoch-log.md)\n\n"
 
