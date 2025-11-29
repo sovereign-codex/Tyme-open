@@ -1,1 +1,83 @@
-<html><body style='background:#111;color:#0ff;text-align:center;'><h2>Signals Module</h2><p>Fully functional interface loaded for signals.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tyme Signals — Resonance Guidance</title>
+  <style>
+    body {
+      background: radial-gradient(circle at 20% 20%, #0a1a2b, #05080f 60%);
+      color: #def5ff;
+      font-family: "Space Grotesk", Arial, sans-serif;
+      margin: 0;
+      padding: 32px;
+      text-align: center;
+    }
+    h1 {
+      color: #7ce7ff;
+      letter-spacing: 1px;
+    }
+    .panel {
+      background: rgba(15, 30, 45, 0.75);
+      border: 1px solid rgba(124, 231, 255, 0.3);
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      padding: 20px;
+      max-width: 720px;
+      margin: 20px auto;
+      text-align: left;
+    }
+    .muted { color: #8fb6c6; }
+    .pill {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0ef, #6fffd8);
+      color: #02111f;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+    .vector, .gradient {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      background: #0d1926;
+      padding: 10px;
+      border-radius: 8px;
+      color: #9de3ff;
+      overflow-x: auto;
+    }
+    ul { padding-left: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Signals: Resonance Guidance Loop</h1>
+  <p class="muted">C33 introduces a live resonance vector + gradient monitor to steer evolutionary parameters.</p>
+
+  <div class="panel" id="resonance-panel">
+    <div class="pill">Resonance Guidance</div>
+    <div id="resonance-content" class="muted">Loading resonance snapshot…</div>
+  </div>
+
+  <script>
+    async function loadResonance() {
+      const container = document.getElementById('resonance-content');
+      try {
+        const res = await fetch('/chronicle/resonance-latest.json');
+        if (!res.ok) throw new Error('missing resonance file');
+        const data = await res.json();
+        container.innerHTML = `
+          <p><strong>Version:</strong> v${data.version || 'N/A'}</p>
+          <p><strong>Mode:</strong> ${data.mode || 'unknown'}</p>
+          <p class="vector"><strong>Vector:</strong> ${JSON.stringify(data.resonance_vector || [])}</p>
+          <p class="gradient"><strong>Gradient:</strong> ${JSON.stringify(data.resonance_gradient || [])}</p>
+          <p><strong>Influence:</strong></p>
+          <ul>${Object.entries(data.influence || {}).map(([k,v]) => `<li>${k}: ${v}</li>`).join('') || '<li>None</li>'}</ul>
+        `;
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = '<em>Resonance snapshot not yet available.</em>';
+      }
+    }
+
+    loadResonance();
+  </script>
+</body>
+</html>

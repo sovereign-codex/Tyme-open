@@ -88,6 +88,17 @@ class EpochRecorder:
             if b.get("path"):
                 entry.append(f"- Map: {b.get('path')}\n")
 
+        if "resonance" in data:
+            r = data.get("resonance") or {}
+            entry.append("\n### Resonance Guidance\n")
+            entry.append(f"- Mode: {r.get('mode')}\n")
+            entry.append(f"- Resonance Vector: {r.get('resonance_vector')}\n")
+            entry.append(f"- Resonance Gradient: {r.get('resonance_gradient')}\n")
+            influence = r.get("influence") or {}
+            entry.append(f"- Influence: {json.dumps(influence)}\n")
+            if data.get("resonance_path"):
+                entry.append(f"- Snapshot: {data.get('resonance_path')}\n")
+
         if "phase" in data:
             p = data.get("phase") or {}
             entry.append("\n### Phase Plot\n")
