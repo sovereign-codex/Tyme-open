@@ -18,6 +18,7 @@ from backend.heatmap_analyzer import HeatmapAnalyzer
 from backend.autonomous import AutonomousEvolution
 from backend.rhythm import RhythmEngine
 from backend.delta_engine import DeltaEngine
+from backend.phase_plot import PhasePlotEngine
 
 app = FastAPI()
 engine = SimpleNamespace(
@@ -259,6 +260,15 @@ def get_rhythm_status():
     """
     r = RhythmEngine()
     return r.get_rhythm()
+
+
+@app.get("/governance/phase.json")
+def get_phase_plot():
+    """
+    Returns PCA-reduced embedding coordinates for phase visualization.
+    """
+    engine = PhasePlotEngine()
+    return engine.compute()
 
 
 @app.post("/autonomous/run")

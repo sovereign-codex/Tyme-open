@@ -18,6 +18,8 @@ from backend.delta_engine import DeltaEngine
 from backend.steering import SteeringEngine
 from backend.strategy_engine import StrategyEngine
 from backend.field import FieldCoherenceEngine
+from backend.embedding_engine import EmbeddingEngine
+from backend.phase_plot import PhasePlotEngine
 
 
 class AutonomousEvolution:
@@ -204,20 +206,6 @@ class AutonomousEvolution:
         spec = fabricated.get("spec")
         output["embedding"] = fabricated.get("embedding", {})
 
-        # -------------------------------------------
-        # C28: Field Coherence Modeling
-        # -------------------------------------------
-
-        field_engine = FieldCoherenceEngine()
-        field = field_engine.compute(
-            version=version,
-            spec=spec,
-            embedding=output.get("embedding", {}),
-            strategy=output.get("strategy", {})
-        )
-
-        output["field"] = field
-
         # ------------------------------------------------------------
         # 3. Guardian
         # ------------------------------------------------------------
@@ -289,6 +277,35 @@ class AutonomousEvolution:
             # Success after healing — replace original spec
             spec = healed_spec
             output["healed"] = True
+
+        # -------------------------------------------
+        # C26/C30: Embedding + Phase Plot Generation
+        # -------------------------------------------
+        embedding_engine = EmbeddingEngine()
+        embedding_meta = {
+            "guardian_score": guardian_score,
+            "convergence_score": convergence_score,
+            "steering_score": steering_score,
+            "predictive_convergence": pred_conv,
+        }
+        embedding = embedding_engine.make_embedding(version, spec, embedding_meta)
+        output["embedding"] = embedding
+
+        phase_engine = PhasePlotEngine()
+        output["phase_plot"] = phase_engine.compute()
+
+        # -------------------------------------------
+        # C28: Field Coherence Modeling
+        # -------------------------------------------
+        field_engine = FieldCoherenceEngine()
+        field = field_engine.compute(
+            version=version,
+            spec=spec,
+            embedding=embedding,
+            strategy=output.get("strategy", {})
+        )
+
+        output["field"] = field
 
         # -------------------------------------------
         # C18: Generate architecture diagrams
@@ -385,6 +402,7 @@ class AutonomousEvolution:
             "steering_actions": steering.get("actions", []),
             "predictive_convergence": pred_conv,
             "field": output.get("field"),
+            "phase": output.get("phase_plot"),
         })
 
         # ------------------------------------------------------------
