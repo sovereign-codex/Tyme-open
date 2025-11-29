@@ -76,6 +76,16 @@ class Archivist:
                     md += f"- {a}\n"
             md += "\n"
 
+        if "strategy" in payload:
+            s = payload["strategy"]
+            md += "## Evolution Strategy\n"
+            md += f"- Recommended: **{s.get('recommended')}**\n"
+            md += f"- Score: {s.get('score')}\n"
+            md += "### Strategy Scores\n"
+            for k,v in s["strategies"].items():
+                md += f"- {k}: {v['score']}\n"
+            md += "\n"
+
         predictive = payload.get("predictive_convergence")
         if predictive:
             md += "## Predictive Convergence Gate\n"

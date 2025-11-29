@@ -16,6 +16,7 @@ from backend.diagram_generator import DiagramGenerator
 from backend.topology import TopologyExtractor
 from backend.delta_engine import DeltaEngine
 from backend.steering import SteeringEngine
+from backend.strategy_engine import StrategyEngine
 
 
 class AutonomousEvolution:
@@ -160,6 +161,27 @@ class AutonomousEvolution:
         # If recommended_action == 'proceed_softened', we can optionally
         # add a softening hint into metadata for later use.
         # (No structural change required here, but signal is preserved.)
+
+        # -------------------------------------------
+        # C27: Evolutionary Strategy Selection
+        # -------------------------------------------
+
+        strategy_engine = StrategyEngine(engine)
+
+        strategy_out = strategy_engine.choose(
+            predicted_spec,
+            horizon=epoch_params.get("parameters", {}).get("horizon", 3)
+        )
+
+        # Replace predicted_spec with strategy's recommended future
+        predicted_spec = strategy_out["recommended_spec"]
+
+        # Include strategy metadata in output
+        output["strategy"] = {
+            "recommended": strategy_out["recommended"],
+            "score": strategy_out["recommended_score"],
+            "strategies": strategy_out["strategies"]
+        }
 
         # ------------------------------------------------------------
         # 2. Fabricate (predictive mode)
