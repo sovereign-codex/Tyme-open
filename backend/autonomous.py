@@ -20,6 +20,7 @@ from backend.strategy_engine import StrategyEngine
 from backend.field import FieldCoherenceEngine
 from backend.embedding_engine import EmbeddingEngine
 from backend.phase_plot import PhasePlotEngine
+from backend.attractor import AttractorEngine
 
 
 class AutonomousEvolution:
@@ -295,6 +296,12 @@ class AutonomousEvolution:
         output["phase_plot"] = phase_engine.compute()
 
         # -------------------------------------------
+        # C31: Attractor Forecasting Engine
+        # -------------------------------------------
+        attractor_engine = AttractorEngine()
+        output["attractor"] = attractor_engine.forecast(str(version))
+
+        # -------------------------------------------
         # C28: Field Coherence Modeling
         # -------------------------------------------
         field_engine = FieldCoherenceEngine()
@@ -403,6 +410,7 @@ class AutonomousEvolution:
             "predictive_convergence": pred_conv,
             "field": output.get("field"),
             "phase": output.get("phase_plot"),
+            "attractor": output.get("attractor"),
         })
 
         # ------------------------------------------------------------

@@ -84,6 +84,17 @@ class EpochRecorder:
                 entry.append(f"- Phase Data: {p.get('path')}\n")
             entry.append("- View: /panel/phase.html\n")
 
+        if "attractor" in data:
+            a = data.get("attractor") or {}
+            entry.append("\n### Attractor Forecast\n")
+            forecast = a.get("attractor", {}) if isinstance(a, dict) else {}
+            entry.append(f"- Type: {forecast.get('type')}\n")
+            entry.append(f"- Strength: {forecast.get('strength')}\n")
+            if a.get("version"):
+                entry.append(f"- Version: {a.get('version')}\n")
+            if a.get("path"):
+                entry.append(f"- Map: {a.get('path')}\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
