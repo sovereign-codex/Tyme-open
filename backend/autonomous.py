@@ -17,6 +17,7 @@ from backend.topology import TopologyExtractor
 from backend.delta_engine import DeltaEngine
 from backend.steering import SteeringEngine
 from backend.strategy_engine import StrategyEngine
+from backend.field import FieldCoherenceEngine
 
 
 class AutonomousEvolution:
@@ -201,6 +202,21 @@ class AutonomousEvolution:
         filename = fabricated.get("filename")
         markdown = fabricated.get("markdown")
         spec = fabricated.get("spec")
+        output["embedding"] = fabricated.get("embedding", {})
+
+        # -------------------------------------------
+        # C28: Field Coherence Modeling
+        # -------------------------------------------
+
+        field_engine = FieldCoherenceEngine()
+        field = field_engine.compute(
+            version=version,
+            spec=spec,
+            embedding=output.get("embedding", {}),
+            strategy=output.get("strategy", {})
+        )
+
+        output["field"] = field
 
         # ------------------------------------------------------------
         # 3. Guardian
@@ -302,6 +318,7 @@ class AutonomousEvolution:
                 "steering_score": steering_score,
                 "steering_actions": steering.get("actions", []),
                 "predictive_convergence": pred_conv,
+                "field": output.get("field"),
             },
             created_by="autonomous"
         )
@@ -367,6 +384,7 @@ class AutonomousEvolution:
             "steering_score": steering_score,
             "steering_actions": steering.get("actions", []),
             "predictive_convergence": pred_conv,
+            "field": output.get("field"),
         })
 
         # ------------------------------------------------------------

@@ -96,6 +96,13 @@ class Archivist:
             md += f"- Approved: {predictive.get('predictive_approved')}\n"
             md += f"- Recommended Action: {predictive.get('recommended_action')}\n\n"
 
+        if "field" in payload:
+            f = payload["field"]
+            md += "## Field Coherence\n"
+            md += f"- **Coherence Index:** {f.get('coherence_index')}\n"
+            md += f"- [Field Strengths]({f.get('field_path')})\n"
+            md += f"- [Tension Heatmap]({f.get('heatmap_path')})\n\n"
+
         md += "\n## Epoch Chronicle\n"
         md += f"[View Epoch Log](/chronicle/epoch-log.md)\n\n"
 
