@@ -46,6 +46,13 @@ class EpochRecorder:
         entry.append("\n### Summary\n")
         entry.append(data.get("summary", "No summary provided.") + "\n")
 
+        if "delta" in data:
+            entry.append("\n### Structural Delta\n")
+            entry.append("```")
+            entry.append("\n")
+            entry.append(json.dumps(data["delta"], indent=2))
+            entry.append("\n```\n")
+
         entry.append("\n### Navigation\n")
         if "architecture_path" in data:
             entry.append(f"- [Architecture Scroll]({data['architecture_path']})\n")
