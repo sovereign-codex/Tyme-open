@@ -21,6 +21,7 @@ from backend.field import FieldCoherenceEngine
 from backend.embedding_engine import EmbeddingEngine
 from backend.phase_plot import PhasePlotEngine
 from backend.attractor import AttractorEngine
+from backend.basin import BasinEngine
 
 
 class AutonomousEvolution:
@@ -315,6 +316,12 @@ class AutonomousEvolution:
         output["field"] = field
 
         # -------------------------------------------
+        # C32: Stability Basin Prediction Engine
+        # -------------------------------------------
+        basin_engine = BasinEngine()
+        output["basin"] = basin_engine.compute(str(version), output.get("attractor", {}), field)
+
+        # -------------------------------------------
         # C18: Generate architecture diagrams
         # -------------------------------------------
         diagram = DiagramGenerator()
@@ -411,6 +418,7 @@ class AutonomousEvolution:
             "field": output.get("field"),
             "phase": output.get("phase_plot"),
             "attractor": output.get("attractor"),
+            "basin": output.get("basin"),
         })
 
         # ------------------------------------------------------------
