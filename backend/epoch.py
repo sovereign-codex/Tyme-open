@@ -61,6 +61,15 @@ class EpochRecorder:
             entry.append(f"- Approved: {pc.get('predictive_approved')}\n")
             entry.append(f"- Recommended Action: {pc.get('recommended_action')}\n")
 
+        if "strategy" in data:
+            s = data["strategy"]
+            entry.append("\n### Strategy\n")
+            entry.append(f"- Recommended: {s.get('recommended')}\n")
+            entry.append(f"- Score: {s.get('score')}\n")
+            entry.append("Strategy Scores:\n")
+            for k,v in s["strategies"].items():
+                entry.append(f"  - {k}: {v['score']}\n")
+
         if "delta" in data:
             entry.append("\n### Structural Delta\n")
             entry.append("```")
