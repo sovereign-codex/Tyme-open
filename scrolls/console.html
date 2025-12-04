@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tyme Console</title>
+    <style>
+        body {
+            background: #0d0d0d;
+            color: #dcdcdc;
+            font-family: "Courier New", monospace;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #a0e0ff;
+            margin-bottom: 10px;
+        }
+
+        #inputBox {
+            width: 100%;
+            padding: 12px;
+            background: #1b1b1b;
+            color: #dcdcdc;
+            border: 1px solid #444;
+            outline: none;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        #output {
+            background: #111;
+            padding: 15px;
+            border: 1px solid #333;
+            min-height: 300px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .entry {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #333;
+        }
+
+        .label {
+            color: #5bc6ff;
+        }
+
+        .error {
+            color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+
+<h1>⧈ TYME CONSOLE ⧈</h1>
+
+<input id="inputBox" placeholder="Enter a CMS or natural language command…">
+<div id="output"></div>
+
+<script>
+async function sendCommand(text) {
+    const out = document.getElementById("output");
+
+    try {
+        const response = await fetch("/cms/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+        const block = document.createElement("div");
+        block.className = "entry";
+
+        block.innerHTML = `
+            <div><span class="label">You:</span> ${text}</div>
+            <div><span class="label">Mode:</span> ${data.mode}</div>
+            <div><span class="label">Canonical:</span> ${data.canonical || "-"}</div>
+            <div><span class="label">Result:</span> ${JSON.stringify(data.result, null, 2)}</div>
+            ${data.error ? `<div class="error"><b>Error:</b> ${data.error}</div>` : ""}
+        `;
+
+        out.appendChild(block);
+        out.scrollTop = out.scrollHeight;
+
+    } catch (e) {
+        const block = document.createElement("div");
+        block.className = "entry error";
+        block.innerText = "ERROR contacting backend: " + e;
+        out.appendChild(block);
+    }
+}
+
+document.getElementById("inputBox").addEventListener("keydown", function(evt) {
+    if (evt.key === "Enter") {
+        const text = this.value.trim();
+        if (text.length > 0) {
+            sendCommand(text);
+            this.value = "";
+        }
+    }
+});
+</script>
+
+</body>
+</html>
