@@ -29,6 +29,51 @@ from backend.resonance import ResonanceEngine
 from backend.epoch_tuner import EpochTuner
 from backend.recovery import RecoveryEngine
 
+# -------------------------------------------------------------------
+# CMS EXECUTION ENDPOINT
+# -------------------------------------------------------------------
+
+from pydantic import BaseModel
+from backend import cms_bindings
+
+class CMSPayload(BaseModel):
+    text: str
+
+@app.post("/cms/execute")
+def cms_execute(payload: CMSPayload):
+    """
+    Execute a CMS command (shorthand or natural language) through the unified
+    interpreter and return the structured result for UI or API consumption.
+    """
+    try:
+        result = cms_bindings.execute(payload.text)
+
+        return {
+            "mode": result.mode,              # 'shorthand', 'natural', or 'unknown'
+            "canonical": result.canonical,    # e.g. 'tyme.orchestrate(24)'
+            "parsed": {
+                "ns": getattr(result.parsed, "ns", None),
+                "name": getattr(result.parsed, "name", None),
+                "action": getattr(result.parsed, "action", None),
+                "args": getattr(result.parsed, "args", None),
+                "origin": getattr(result.parsed, "origin", None),
+                "raw": getattr(result.parsed, "raw", None),
+            } if result.parsed else None,
+            "result": result.result,          # backend returned value from orchestration/AVOT/etc.
+            "error": result.error,            # error string or None
+            "notes": result.notes or {},
+        }
+
+    except Exception as e:
+        return {
+            "mode": "error",
+            "canonical": None,
+            "parsed": None,
+            "result": None,
+            "error": str(e),
+            "notes": {"exception": True}
+        }
+
 app = FastAPI()
 engine = SimpleNamespace(
     create_task=lambda **kwargs: SimpleNamespace(**kwargs),
