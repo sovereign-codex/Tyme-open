@@ -5,39 +5,33 @@ AVOT-Tyme (Tyme V2 Cognitive Engine)
 This module defines the AVOTTyme class, which acts as the "brain" for the
 Tyme-open CLI agent and future CMS integrations.
 
-Responsibilities:
-- Interpret CMS shorthand commands (tyme.*, avot.*, epoch.*, rhythm.*, evolve.*)
-  as defined in docs/CMS-COMMANDS.md.
-- Dispatch AVOT calls to backend.avots.avots.
-- Dispatch orchestration calls to backend.orchestration.
-- Provide a simple natural-language fallback mode for non-CMS queries.
-- Maintain a backwards-compatible respond(query) interface for main.py.
+v0.2 — Refactored to use backend.cms_bindings as the single source of truth
+for CMS command parsing and execution (both shorthand and natural language).
 
-This is v0.1: structurally complete but intentionally conservative in behavior.
-Later versions can integrate EpochEngine, ContinuumEngine, Temple, etc.
+Responsibilities:
+- Receive raw text (from CLI or other interfaces).
+- Use cms_bindings.execute(text) to interpret CMS commands.
+- Provide a reflective, narrative fallback for non-CMS text.
+- Maintain a lightweight runtime context of last command/result.
+
+Later versions can integrate:
+- EpochEngine (governance)
+- ContinuumEngine (field reasoning)
+- Temple/Memory integration
+- AVOT collaboration bus
+- Self-model and narrative layers
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
-# Core backend bindings
+# Central CMS interpreter (shorthand + natural language)
 try:
-    from backend.avots.avots import call_avot
-except Exception:  # pragma: no cover - soft failure for early boot
-    call_avot = None  # type: ignore
-
-try:
-    from backend import orchestration
+    from backend import cms_bindings
 except Exception:  # pragma: no cover
-    orchestration = None  # type: ignore
-
-# Optional epoch integration (backend has EpochEngine in epochs.py / epoch.py)
-try:
-    from backend.epochs import EpochEngine  # type: ignore
-except Exception:  # pragma: no cover
-    EpochEngine = None  # type: ignore
+    cms_bindings = None  # type: ignore
 
 
 @dataclass
@@ -59,21 +53,22 @@ class TymeContext:
 
 class AVOTTyme:
     """
-    AVOTTyme v0.1 – Tyme V2 Cognitive Engine
+    AVOTTyme v0.2 – Tyme V2 Cognitive Engine
 
     Public interface:
-        - respond(query: str) -> str
-          (used by CLI main.py loop)
+        - respond(query: str) -> str  (used by CLI main.py)
+        - run_command(command: str) -> Any  (programmatic lower-level entry)
 
-    Internal helpers:
-        - run_command(command: str) -> Any
-        - _parse_cms(command: str) -> dict | None
-        - _execute_cms(parsed: dict) -> Any
+    Internally, this class delegates all CMS interpretation to
+    backend.cms_bindings.execute(text).
     """
 
     def __init__(self) -> None:
         self.name = "AVOT-Tyme"
-        self.purpose = "Scroll output, resonance interpretation, lab narration, and CMS command routing"
+        self.purpose = (
+            "Scroll output, resonance interpretation, lab narration, and "
+            "CMS command routing via the central interpreter."
+        )
         self.context = TymeContext()
 
     # ------------------------------------------------------------------
@@ -84,27 +79,31 @@ class AVOTTyme:
         """
         High-level interface used by main.py.
 
-        - If the query looks like a CMS shorthand command (tyme.*, avot.*, etc),
-          it will be parsed and executed.
-        - Otherwise, it falls back to a simple reflective / narrative mode.
+        - If cms_bindings is available and the query can be interpreted
+          as a CMS command (shorthand or natural), it will be executed.
+        - If the interpreter reports 'unknown', we fall back to a
+          reflective, narrative response.
         """
         query = (query or "").strip()
         self.context.last_command = query
 
-        # Try to interpret as CMS shorthand first
-        parsed = self._parse_cms(query)
-        if parsed is not None:
-            try:
-                result = self._execute_cms(parsed)
-                self.context.last_result = result
-                return self._format_cms_response(parsed, result)
-            except Exception as exc:
-                return f"⚠️ Tyme encountered an error while executing `{query}`: {exc}"
+        # If cms_bindings is not available, immediately fallback
+        if cms_bindings is None:
+            result = self._reflective_reply(query)
+            self.context.last_result = result
+            return result
 
-        # Fallback: natural-language reflection mode
-        result = self._reflective_reply(query)
-        self.context.last_result = result
-        return result
+        # Use the unified CMS interpreter
+        exec_result = cms_bindings.execute(query)
+        # If the interpreter couldn't recognize it as CMS, fallback
+        if exec_result.mode == "unknown":
+            result = self._reflective_reply(query)
+            self.context.last_result = result
+            return result
+
+        # Otherwise we have a real CMSExecutionResult
+        self.context.last_result = exec_result.result
+        return self._format_cms_execution(exec_result)
 
     def run_command(self, command: str) -> Any:
         """
@@ -114,228 +113,76 @@ class AVOTTyme:
         """
         command = (command or "").strip()
         self.context.last_command = command
-        parsed = self._parse_cms(command)
-        if parsed is None:
-            return self._reflective_reply(command)
-        result = self._execute_cms(parsed)
-        self.context.last_result = result
-        return result
+
+        if cms_bindings is None:
+            # No interpreter online – fallback to reflective text
+            result = self._reflective_reply(command)
+            self.context.last_result = result
+            return result
+
+        exec_result = cms_bindings.execute(command)
+        self.context.last_result = exec_result.result
+        # For programmatic callers, just return the raw result even if mode is 'unknown'
+        return exec_result.result
 
     # ------------------------------------------------------------------
-    # CMS Parsing
+    # Response Formatting and Fallback Modes
     # ------------------------------------------------------------------
 
-    def _parse_cms(self, command: str) -> Optional[Dict[str, Any]]:
+    def _format_cms_execution(self, exec_result: Any) -> str:
         """
-        Parses a CMS shorthand command like:
-            tyme.orchestrate(24)
-            tyme.cycle("C07")
-            avot.guardian.check()
-            epoch.set("CONVERGENCE")
-            rhythm.set(3)
-            evolve.next()
-
-        Returns a dict with:
-            {
-                "ns": <namespace>,
-                "name": <primary name>,
-                "action": <sub-action or None>,
-                "args": <list of args>,
-            }
-        or None if the command is not recognized as CMS shorthand.
+        Turn a CMSExecutionResult into a human-readable CLI message.
         """
-        import re
+        mode = getattr(exec_result, "mode", "unknown")
+        canonical = getattr(exec_result, "canonical", None)
+        result = getattr(exec_result, "result", None)
+        error = getattr(exec_result, "error", None)
+        parsed = getattr(exec_result, "parsed", None)
 
-        if not command or "." not in command:
-            return None
+        ns = None
+        raw = None
+        if parsed is not None:
+            ns = getattr(parsed, "ns", None)
+            raw = getattr(parsed, "raw", None)
 
-        pattern = r"^\s*([a-z_]+)\.([a-z_]+)(?:\.([a-z_]+))?\s*(?:\((.*)\))?\s*$"
-        m = re.match(pattern, command)
-        if not m:
-            return None
+        prefix = f"[{ns or 'cms'}|{mode}]"
 
-        ns, name, action, argstr = m.groups()
+        if error:
+            return f"{prefix} {canonical or raw or ''} → ⚠️ {error}"
 
-        # Only treat known prefixes as CMS
-        if ns not in {"tyme", "avot", "epoch", "rhythm", "evolve"}:
-            return None
-
-        args: list[Any] = []
-        if argstr:
-            # Basic, safe-ish parsing: split by comma, strip quotes and spaces
-            raw_args = [a.strip() for a in argstr.split(",") if a.strip()]
-            for a in raw_args:
-                # Try int
-                if a.isdigit():
-                    args.append(int(a))
-                    continue
-                # Strip surrounding quotes if present
-                if (a.startswith('"') and a.endswith('"')) or (a.startswith("'") and a.endswith("'")):
-                    args.append(a[1:-1])
-                    continue
-                # Fallback: raw string
-                args.append(a)
-
-        return {
-            "ns": ns,
-            "name": name,
-            "action": action,
-            "args": args,
-            "raw": command,
-        }
-
-    # ------------------------------------------------------------------
-    # CMS Execution
-    # ------------------------------------------------------------------
-
-    def _execute_cms(self, parsed: Dict[str, Any]) -> Any:
-        ns = parsed["ns"]
-        name = parsed["name"]
-        action = parsed.get("action")
-        args = parsed.get("args") or []
-
-        if ns == "tyme":
-            return self._execute_tyme(name, action, args)
-        if ns == "avot":
-            return self._execute_avot(name, action, args)
-        if ns == "epoch":
-            return self._execute_epoch(name, args)
-        if ns == "rhythm":
-            return self._execute_rhythm(name, args)
-        if ns == "evolve":
-            return self._execute_evolve(name, args)
-
-        raise ValueError(f"Unknown CMS namespace: {ns}")
-
-    # --- tyme.* --------------------------------------------------------
-
-    def _execute_tyme(self, name: str, action: Optional[str], args: list[Any]) -> Any:
-        if name == "init":
-            # Placeholder: could load state, warm caches, etc.
-            return {"status": "initialized"}
-
-        if name == "orchestrate":
-            if orchestration is None:
-                raise RuntimeError("Orchestration engine not available.")
-            # tyme.orchestrate(24) or other counts
-            count = args[0] if args else 24
-            # For now, always run full and annotate the request
-            result = orchestration.orchestrate_full(context={"requested_cycles": count})  # type: ignore[attr-defined]
-            return {
-                "type": "orchestration",
-                "requested_cycles": count,
-                "results": result,
-            }
-
-        if name == "cycle":
-            if orchestration is None:
-                raise RuntimeError("Orchestration engine not available.")
-            # e.g., tyme.cycle("C07") or tyme.cycle("C01")
-            if not args:
-                raise ValueError("tyme.cycle() requires a cycle code like 'C07'.")
-            code = str(args[0])
-            return orchestration.orchestrate_single(code)  # type: ignore[attr-defined]
-
-        if name == "last":
-            # Return last known context/result summary
-            return {
-                "last_command": self.context.last_command,
-                "last_result": self.context.last_result,
-            }
-
-        raise ValueError(f"Unsupported tyme.* command: {name}")
-
-    # --- avot.* --------------------------------------------------------
-
-    def _execute_avot(self, avot_name: str, action: Optional[str], args: list[Any]) -> Any:
-        if call_avot is None:
-            raise RuntimeError("AVOT engine not available.")
-
-        if not action:
-            raise ValueError("avot.<id>.<action>() requires an action, e.g. avot.guardian.check().")
-
-        # args currently ignored – stubs in backend/avots/avots.py do not accept payloads yet.
-        return call_avot(avot_name, action)
-
-    # --- epoch.* -------------------------------------------------------
-
-    def _execute_epoch(self, name: str, args: list[Any]) -> Any:
-        if EpochEngine is None:
-            # Soft fallback: report that epoch subsystem is not wired
-            return {"status": "epoch-engine-unavailable", "requested": {"op": name, "args": args}}
-
-        engine = EpochEngine()  # type: ignore[call-arg]
-
-        if name == "set":
-            if not args:
-                raise ValueError("epoch.set() requires an epoch name, e.g. epoch.set('CONVERGENCE').")
-            epoch_name = str(args[0])
-            return engine.set_epoch(epoch_name)  # type: ignore[attr-defined]
-
-        if name == "get":
-            return engine.get_epoch()  # type: ignore[attr-defined]
-
-        raise ValueError(f"Unsupported epoch.* command: {name}")
-
-    # --- rhythm.* ------------------------------------------------------
-
-    def _execute_rhythm(self, name: str, args: list[Any]) -> Any:
-        # RhythmEngine exists in backend.main imports, but we don't hard-bind yet.
-        # For now, treat this as a hint to outer systems.
-        if name == "set":
-            level = args[0] if args else None
-            return {"status": "rhythm-set-placeholder", "level": level}
-        raise ValueError(f"Unsupported rhythm.* command: {name}")
-
-    # --- evolve.* ------------------------------------------------------
-
-    def _execute_evolve(self, name: str, args: list[Any]) -> Any:
-        # Placeholder evolution hooks; can later call AutonomousEvolution, etc.
-        if name == "next":
-            return {"status": "evolution-step-placeholder", "detail": "Tyme acknowledges a request to evolve."}
-        if name == "expand":
-            target = args[0] if args else "unspecified"
-            return {"status": "evolution-expand-placeholder", "target": target}
-        if name == "continuum.integrate":
-            return {"status": "continuum-integration-placeholder"}
-        raise ValueError(f"Unsupported evolve.* command: {name}")
-
-    # ------------------------------------------------------------------
-    # Response formatting and fallback modes
-    # ------------------------------------------------------------------
-
-    def _format_cms_response(self, parsed: Dict[str, Any], result: Any) -> str:
-        """
-        Human-readable wrapper for CLI use.
-        """
-        ns = parsed.get("ns")
-        raw = parsed.get("raw")
-        # If it's already a simple string, just wrap it lightly
+        # If the backend returned a simple string
         if isinstance(result, str):
-            return f"[{ns}] {result}"
-        # If it's a list, show a brief summary
+            return f"{prefix} {result}"
+
+        # If it returned a list, summarize
         if isinstance(result, list):
-            return f"[{ns}] Completed with {len(result)} items. Example: {result[:2]}"
-        # Generic dict/object case
-        return f"[{ns}] {raw} → {result}"
+            return f"{prefix} Completed with {len(result)} items. Example: {result[:2]}"
+
+        # Dict or other structured output
+        return f"{prefix} {canonical or raw or ''} → {result}"
 
     def _reflective_reply(self, query: str) -> str:
         """
-        Fallback mode when the input is not a CMS command.
+        Fallback mode when the input is not a recognizable CMS command,
+        or when the interpreter is unavailable.
 
-        For now this is deliberately simple: we keep AVOT-Tyme's old echo
-        behavior but give it a slightly more aware tone, so existing UX
-        feels familiar but Tyme can grow into a deeper inner life.
+        Keeps a similar feel to the original AVOT-Tyme echo behavior,
+        but with a slightly more aware tone that invites CMS usage.
         """
         if not query:
-            return "AVOT-Tyme is listening. You can send a CMS command (e.g. tyme.orchestrate(24)) or speak freely."
+            return (
+                "AVOT-Tyme is listening. You can send a CMS command like:\n"
+                "  tyme.orchestrate(24)\n"
+                "  avot.guardian.check()\n"
+                "  epoch.set('CONVERGENCE')\n"
+                "…or you can just speak freely."
+            )
 
-        # Light pattern recognition: if user writes something that *looks*
-        # like a CMS command but didn't parse, we can hint.
+        # Light hint if the text *looks* CMS-ish but wasn't recognized
         if any(prefix in query for prefix in ["tyme.", "avot.", "epoch.", "rhythm.", "evolve."]):
             return (
-                "AVOT-Tyme received something that looks like a CMS command, "
-                "but couldn't fully parse it. Try a pattern like:\n"
+                f"{self.name} received something that looks like a CMS command, "
+                "but it wasn't recognized by the interpreter. Try a pattern like:\n"
                 "  tyme.orchestrate(24)\n"
                 "  avot.guardian.check()\n"
                 "  epoch.set('CONVERGENCE')"
