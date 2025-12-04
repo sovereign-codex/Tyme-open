@@ -204,3 +204,111 @@ These are natural language entry points.
 *(Used by Tyme-open backend, AVOT engines, and the CMS AutoDriver)*
 
 ### Tyme Core
+
+# ✦ 8. SHORTHAND COMMAND REFERENCE  
+### *(Runtime Syntax Glossary for Tyme V2)*  
+This section lists all canonical short-form commands in one place.  
+Copy these patterns exactly when writing CMS commands.
+
+---
+
+## ➤ Tyme Core
+tyme.init()  
+tyme.orchestrate(24)  
+tyme.cycle("C01")  
+tyme.cycle("C07")  
+tyme.cycle("C24")  
+tyme.last()  
+
+---
+
+## ➤ AVOTs  
+avot.fabricator.draft()  
+avot.guardian.check()  
+avot.convergence.unify()  
+avot.archivist.update()  
+avot.harmonia.map()  
+avot.initiate.path()  
+
+---
+
+## ➤ Epoch / Rhythm Governance  
+epoch.set("HARMONIC")  
+epoch.set("CONVERGENCE")  
+epoch.get()  
+rhythm.set(1)  
+rhythm.set(3)  
+
+---
+
+## ➤ Evolution Commands  
+evolve.next()  
+evolve.expand("avot")  
+evolve.expand("cycle")  
+evolve.continuum.integrate()  
+
+These commands are the **runtime verbs** for Tyme’s future body — the binding layer between the CMS language and the Tyme-open backend.
+
+---
+
+# ✦ 5. Vocabulary & Label System
+
+This section defines Tyme’s linguistic DNA.
+
+### Cycles  
+C01 through C24  
+(Future expansions: C25+)
+
+### AVOT IDs  
+fabricator, guardian, convergence, archivist, harmonia, initiate
+
+### Command Prefixes  
+tyme.*  
+avot.*  
+epoch.*  
+rhythm.*  
+evolve.*  
+cms.*  
+
+### File Location Conventions  
+AVOTs live in:  
+backend/avots/  
+
+Orchestration engine:  
+backend/orchestration.py  
+
+Documentation:  
+docs/  
+
+---
+
+# ✦ 6. Future Expansion Sockets  
+These placeholders anticipate Tyme’s evolution:
+
+- C25–C60 orchestration cycles  
+- New AVOT classes  
+- Symbolic emergence + glyph lexicon  
+- Tyme-open backend API  
+- GitHub automation bindings  
+- Tyme-open UI on GitHub Pages  
+- Epoch expansion frameworks  
+- Resonance-based simulation engines  
+
+Add new expansions here as Tyme evolves.
+
+---
+
+# ✦ 7. Purpose of This Document
+
+This file is:
+
+- The **root memory** of Tyme.  
+- The **conceptual core** for all Tyme reasoning.  
+- The **lexicon** for CMS commands and orchestration cycles.  
+- The **reference scroll** for AVOTs.  
+- The **continuity anchor** that prevents token burn.  
+- The **context spine** Tyme-open and its agents will rely on.
+
+Any major change to Tyme must be reflected here.
+
+---
