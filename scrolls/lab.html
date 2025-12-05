@@ -1,1 +1,102 @@
-<html><body style='background:#111;color:#0ff;text-align:center;'><h2>Lab Module</h2><p>Fully functional interface loaded for lab.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tyme Lab</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">LAB</div>
+      <div class="tyme-subtitle">EXPERIMENTATION CHAMBER</div>
+    </div>
+  </div>
+</div>
+
+<div class="chamber-container">
+
+  <!-- ORCHESTRATION CONTROL PANEL -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Orchestration Engine</div>
+
+    <button class="tyme-button" onclick="runCMS('tyme.orchestrate(24)')">
+      Run Full 24-Cycle Orchestration
+    </button>
+
+    <div style="margin-top:14px;">
+      <label style="color:#9efbff; font-size:14px;">Run Single Cycle:</label><br>
+      <select id="cycleSelect" class="cycle-select">
+        <script>
+          for (let i=1; i<=24; i++) {
+            document.write(`<option value="C${String(i).padStart(2,'0')}">C${String(i).padStart(2,'0')}</option>`);
+          }
+        </script>
+      </select>
+      <button class="tyme-button" onclick="runSelectedCycle()">Run</button>
+    </div>
+
+    <div id="orcOutput" class="lab-output"></div>
+  </div>
+
+  <!-- AVOT BENCH -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">AVOT Bench</div>
+
+    <div class="avot-bench">
+      <button class="tyme-button" onclick="runCMS('avot.guardian.check()')">Guardian</button>
+      <button class="tyme-button" onclick="runCMS('avot.fabricator.draft()')">Fabricator</button>
+      <button class="tyme-button" onclick="runCMS('avot.convergence.merge()')">Convergence</button>
+      <button class="tyme-button" onclick="runCMS('avot.harmonia.tune()')">Harmonia</button>
+      <button class="tyme-button" onclick="runCMS('avot.archivist.record()')">Archivist</button>
+      <button class="tyme-button" onclick="runCMS('avot.initiate.ignite()')">Initiate</button>
+    </div>
+  </div>
+
+  <!-- CMS SCRATCHPAD -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">CMS Scratchpad</div>
+
+    <input id="cmsInput" class="console-input" placeholder="Enter CMS command…">
+    <button class="tyme-button" onclick="scratchCMS()">Run</button>
+
+    <div id="cmsOutput" class="lab-output"></div>
+  </div>
+
+</div>
+
+<script>
+async function runCMS(cmd) {
+  const res = await fetch("/cms/execute", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ text: cmd })
+  });
+  const data = await res.json();
+  const el = document.getElementById("orcOutput");
+  el.textContent = JSON.stringify(data, null, 2);
+}
+
+function runSelectedCycle() {
+  const cycle = document.getElementById("cycleSelect").value;
+  runCMS(`tyme.orchestrate.single('${cycle}')`);
+}
+
+async function scratchCMS() {
+  const text = document.getElementById("cmsInput").value;
+  const res = await fetch("/cms/execute", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({text})
+  });
+  const data = await res.json();
+  const el = document.getElementById("cmsOutput");
+  el.textContent = JSON.stringify(data, null, 2);
+}
+</script>
+
+</body>
+</html>
