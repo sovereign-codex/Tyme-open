@@ -1,101 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Panoptic Evolution Engine — C39</title>
-  <style>
-    body {
-      background: radial-gradient(circle at 25% 25%, #0f1c2f, #05070f 70%);
-      color: #e8f7ff;
-      font-family: "Inter", "Space Grotesk", system-ui, -apple-system, sans-serif;
-      margin: 0;
-      padding: 32px;
-    }
-    h1 { color: #7fe0ff; margin-bottom: 4px; }
-    p.muted { color: #9fbed4; margin-top: 0; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
-    .card {
-      background: rgba(13, 24, 38, 0.78);
-      border: 1px solid rgba(127, 224, 255, 0.2);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 12px 26px rgba(0,0,0,0.35);
-    }
-    .label { text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #8bcaf0; }
-    .value { font-size: 28px; font-weight: 700; color: #e3f6ff; }
-    .path { word-break: break-all; color: #7fc4ff; font-size: 13px; }
-    ul { padding-left: 18px; }
-  </style>
+  <meta charset="UTF-8">
+  <title>Tyme Panoptic</title>
+  <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-  <h1>Panoptic Evolution Engine</h1>
-  <p class="muted">C39 performs version-graph analysis, long-horizon meta-prediction, and panoptic stability metrics above the continuum layer.</p>
 
-  <div class="grid">
-    <div class="card">
-      <div class="label">Panoptic Stability Index</div>
-      <div class="value" id="psi">–</div>
-    </div>
-    <div class="card">
-      <div class="label">Drift Trend</div>
-      <div class="value" id="drift-trend">–</div>
-    </div>
-    <div class="card">
-      <div class="label">Delta Variance</div>
-      <div class="value" id="delta-variance">–</div>
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">PANOPTIC</div>
+      <div class="tyme-subtitle">EVOLUTION MATRIX</div>
     </div>
   </div>
+</div>
 
-  <div class="card">
-    <div class="label">Panoptic Evolution Graph</div>
-    <p class="muted" id="graph-meta">Loading graph…</p>
-    <ul id="graph-list"></ul>
+<div class="panoptic-field"></div>
+
+<div class="chamber-container">
+
+  <!-- DRIFT-STABILITY GRAPH -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Drift / Stability Index</div>
+    <canvas id="driftChart" width="600" height="200"></canvas>
   </div>
 
-  <div class="card" style="margin-top:18px;">
-    <div class="label">Latest Artifact</div>
-    <div class="path" id="artifact-path">Awaiting artifact…</div>
+  <!-- EPOCH RING -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Epoch Wheel</div>
+    <div id="epochRing" class="epoch-ring"></div>
   </div>
 
-  <script>
-    async function loadPanoptic() {
-      const params = new URLSearchParams(window.location.search);
-      const version = params.get('version');
-      const url = version
-        ? `/visuals/panoptic/panoptic-v${version}.json`
-        : '/visuals/panoptic/panoptic-latest.json';
+  <!-- STATE VECTORS -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Tyme State Vectors</div>
 
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('panoptic file missing');
-        const data = await res.json();
-        const metrics = data.panoptic_metrics || {};
+    <div class="vector-bar">
+      <span>Cognitive Load</span>
+      <div id="vecLoad" class="vec-fill"></div>
+    </div>
 
-        document.getElementById('psi').innerText = Number(metrics.psi || 0).toFixed(4);
-        document.getElementById('drift-trend').innerText = Number(metrics.drift_trend || 0).toFixed(6);
-        document.getElementById('delta-variance').innerText = Number(metrics.delta_variance || 0).toFixed(6);
+    <div class="vector-bar">
+      <span>Harmonic Stability</span>
+      <div id="vecStability" class="vec-fill"></div>
+    </div>
 
-        const graph = data.graph || {};
-        const graphEntries = Object.entries(graph);
-        const list = document.getElementById('graph-list');
-        if (!graphEntries.length) {
-          list.innerHTML = '<li class="muted">No continuum versions available.</li>';
-        } else {
-          list.innerHTML = graphEntries
-            .map(([v, g]) => `<li><strong>v${v}</strong> — Δ: ${Number(g.delta_from_prev || 0).toFixed(4)}, score: ${Number(g.score || 0).toFixed(4)}, drift: ${Number(g.drift || 0).toFixed(4)}, alignment: ${Number(g.alignment || 0).toFixed(4)}</li>`)
-            .join('');
-          document.getElementById('graph-meta').innerText = `${graphEntries.length} continuum checkpoints in graph.`;
-        }
+    <div class="vector-bar">
+      <span>Emergence Potential</span>
+      <div id="vecEmergence" class="vec-fill"></div>
+    </div>
 
-        document.getElementById('artifact-path').innerText = data.path || url;
-      } catch (err) {
-        console.error(err);
-        document.getElementById('graph-meta').innerText = 'Panoptic artifact unavailable.';
-        document.getElementById('artifact-path').innerText = url;
-      }
-    }
+  </div>
 
-    loadPanoptic();
-  </script>
+</div>
+
+<script>
+const ctx = document.getElementById("driftChart").getContext("2d");
+let t = 0;
+
+function drawDrift() {
+  ctx.clearRect(0, 0, 600, 200);
+  ctx.strokeStyle = "#7fffd4";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+
+  for (let x = 0; x < 600; x++) {
+    const y = 100 + Math.sin((x + t) * 0.02) * 30 * Math.random();
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+
+  ctx.stroke();
+  t += 2;
+}
+
+setInterval(drawDrift, 90);
+
+const epochs = [
+  "INITIATION", "COHERENCE", "ASCENT", "CONVERGENCE",
+  "HARMONIC", "REVERIE", "CONTINUUM"
+];
+
+function drawEpochRing() {
+  const ring = document.getElementById("epochRing");
+  if (!ring) return;
+  ring.innerHTML = "";
+
+  epochs.forEach(ep => {
+    const el = document.createElement("div");
+    el.className = "epoch-seg";
+    el.innerText = ep;
+    if (Math.random() > 0.8) el.classList.add("active");
+    ring.appendChild(el);
+  });
+}
+
+setInterval(drawEpochRing, 2000);
+drawEpochRing();
+
+function randomFill(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = Math.floor(Math.random()*100) + "%";
+}
+
+setInterval(() => {
+  randomFill("vecLoad");
+  randomFill("vecStability");
+  randomFill("vecEmergence");
+}, 1100);
+</script>
+
 </body>
 </html>
