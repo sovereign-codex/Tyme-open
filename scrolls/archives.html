@@ -1,1 +1,118 @@
-<html><body style='background:#111;color:#0ff;text-align:center;'><h2>Archives Module</h2><p>Fully functional interface loaded for archives.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tyme Archives</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">ARCHIVES</div>
+      <div class="tyme-subtitle">TEMPORAL MEMORY CHAMBER</div>
+    </div>
+  </div>
+</div>
+
+<div class="chamber-container">
+
+  <!-- SESSION TIMELINE -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Session Timeline</div>
+    <div id="timeline" class="archive-timeline">
+      <em>Loading recent events…</em>
+    </div>
+  </div>
+
+  <!-- ORCHESTRATION LOG -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Orchestration Log</div>
+    <div id="orcLog" class="archive-log">
+      <em>Awaiting orchestration records…</em>
+    </div>
+  </div>
+
+  <!-- SNAPSHOTS -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">State Snapshots</div>
+    <div class="snapshot-grid">
+      <div class="snapshot-card">
+        <div class="snapshot-label">Resonance Snapshot</div>
+        <p>A future capture of Signals data at a specific moment in time.</p>
+      </div>
+      <div class="snapshot-card">
+        <div class="snapshot-label">Panoptic Frame</div>
+        <p>Future frame of Tyme’s evolution state from the Panoptic Matrix.</p>
+      </div>
+      <div class="snapshot-card">
+        <div class="snapshot-label">AVOT Pulse Frame</div>
+        <p>Future freeze-frame of AVOT influence at a key moment.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+async function safeFetchJSON(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function renderTimeline(events) {
+  const container = document.getElementById("timeline");
+  if (!events || !events.length) {
+    container.innerHTML = "<em>No recorded events yet.</em>";
+    return;
+  }
+
+  container.innerHTML = "";
+  events.slice(-20).reverse().forEach(ev => {
+    const item = document.createElement("div");
+    item.className = "timeline-item";
+    const time = ev.timestamp || "unknown time";
+    const cmd = ev.command || ev.text || "—";
+    item.innerHTML = `<div class="timeline-time">${time}</div>
+                      <div class="timeline-command">${cmd}</div>`;
+    container.appendChild(item);
+  });
+}
+
+function renderOrcLog(records) {
+  const container = document.getElementById("orcLog");
+  if (!records || !records.length) {
+    container.innerHTML = "<em>No orchestration runs recorded yet.</em>";
+    return;
+  }
+
+  container.innerHTML = "";
+  records.slice(-10).reverse().forEach(rec => {
+    const item = document.createElement("div");
+    item.className = "log-entry";
+    const time = rec.timestamp || "unknown time";
+    const code = rec.code || rec.canonical || "—";
+    item.innerHTML = `<div class="log-header">${time}</div>
+                      <div class="log-body">Run: ${code}</div>`;
+    container.appendChild(item);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const timelineData = await safeFetchJSON("/chronicle/cms-log.json");
+  const orchData = await safeFetchJSON("/chronicle/orchestration-log.json");
+
+  renderTimeline(timelineData || []);
+  renderOrcLog(orchData || []);
+});
+</script>
+
+</body>
+</html>
