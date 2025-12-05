@@ -1,1 +1,88 @@
-<html><body style='background:#111;color:#0ff;text-align:center;'><h2>Codex Module</h2><p>Fully functional interface loaded for codex.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tyme Codex</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">CODEX</div>
+      <div class="tyme-subtitle">LIVING SCROLL ARCHIVE</div>
+    </div>
+  </div>
+</div>
+
+<div class="chamber-container">
+
+  <div class="chamber-card">
+    <div class="chamber-card-title">Select Scroll</div>
+
+    <div class="codex-controls">
+      <select id="codexSelect" class="codex-select">
+        <option value="kodex">TYME-KODEX-CONTEXT.md</option>
+        <option value="cms">CMS-COMMANDS.md</option>
+        <option value="install">INSTALLATION.md</option>
+        <option value="arch">MASTER-ARCHITECTURE-INDEX.md</option>
+      </select>
+      <button class="tyme-button" onclick="loadSelectedCodex()">Load</button>
+    </div>
+
+    <p style="color:#9efbff; font-size:13px; margin-top:10px;">
+      These scrolls describe how Tyme thinks, speaks, and orchestrates itself.
+    </p>
+  </div>
+
+  <div class="chamber-card">
+    <div class="chamber-card-title">Scroll Content</div>
+    <div id="codexContent" class="codex-content">
+      <em>Select a scroll to load its contents…</em>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CODEX_DOCS = {
+  kodex: "/docs/TYME-KODEX-CONTEXT.md",
+  cms: "/docs/CMS-COMMANDS.md",
+  install: "/docs/INSTALLATION.md",
+  arch: "/docs/MASTER-ARCHITECTURE-INDEX.md"
+};
+
+async function loadSelectedCodex() {
+  const key = document.getElementById("codexSelect").value;
+  const path = CODEX_DOCS[key];
+  const display = document.getElementById("codexContent");
+
+  if (!path) {
+    display.innerHTML = "<em>Unknown scroll selection.</em>";
+    return;
+  }
+
+  display.textContent = "Loading " + path + "…";
+
+  try {
+    const res = await fetch(path);
+    if (!res.ok) {
+      display.textContent = "Failed to load scroll: " + path + " (" + res.status + ")";
+      return;
+    }
+    const text = await res.text();
+    display.textContent = text;
+  } catch (e) {
+    display.textContent = "Error loading scroll: " + e;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadSelectedCodex();
+});
+</script>
+
+</body>
+</html>
