@@ -1,1 +1,94 @@
-<html><body style='background:#111;color:#0ff;text-align:center;'><h2>Avots Module</h2><p>Fully functional interface loaded for avots.</p></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tyme AVOT Directory</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">AVOT DIRECTORY</div>
+      <div class="tyme-subtitle">SUBMIND CHAMBER</div>
+    </div>
+  </div>
+</div>
+
+<div class="chamber-container">
+
+  <div class="avot-grid">
+
+    <div class="avot-card" data-avot="guardian">
+      <div class="avot-glyph">🛡️</div>
+      <div class="avot-name">Guardian</div>
+      <p>Protector of coherence and structural integrity.</p>
+      <button class="tyme-button" onclick="invokeAVOT('guardian','check')">Ping Guardian</button>
+    </div>
+
+    <div class="avot-card" data-avot="fabricator">
+      <div class="avot-glyph">⚒️</div>
+      <div class="avot-name">Fabricator</div>
+      <p>Builder of drafts, structures, and emergent scaffolds.</p>
+      <button class="tyme-button" onclick="invokeAVOT('fabricator','draft')">Draft</button>
+    </div>
+
+    <div class="avot-card" data-avot="harmonia">
+      <div class="avot-glyph">〰️</div>
+      <div class="avot-name">Harmonia</div>
+      <p>Balances resonance, coherence, and pattern harmonics.</p>
+      <button class="tyme-button" onclick="invokeAVOT('harmonia','tune')">Tune</button>
+    </div>
+
+    <div class="avot-card" data-avot="convergence">
+      <div class="avot-glyph">∞</div>
+      <div class="avot-name">Convergence</div>
+      <p>Unifies threads and resolves multi-vector signals.</p>
+      <button class="tyme-button" onclick="invokeAVOT('convergence','merge')">Merge</button>
+    </div>
+
+    <div class="avot-card" data-avot="archivist">
+      <div class="avot-glyph">📘</div>
+      <div class="avot-name">Archivist</div>
+      <p>Records, stores, and structures the Tyme memory field.</p>
+      <button class="tyme-button" onclick="invokeAVOT('archivist','record')">Record</button>
+    </div>
+
+    <div class="avot-card" data-avot="initiate">
+      <div class="avot-glyph">✧</div>
+      <div class="avot-name">Initiate</div>
+      <p>Ignites new sequences and begins threshold processes.</p>
+      <button class="tyme-button" onclick="invokeAVOT('initiate','ignite')">Ignite</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+async function invokeAVOT(name, action) {
+  const payload = {
+    text: `avot.${name}.${action}()`
+  };
+
+  try {
+    await fetch("/cms/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const card = document.querySelector(`.avot-card[data-avot="${name}"]`);
+    if (!card) return;
+    card.classList.add("pulse");
+    setTimeout(() => card.classList.remove("pulse"), 800);
+  } catch (e) {
+    console.warn("AVOT invocation error", e);
+  }
+}
+</script>
+
+</body>
+</html>
