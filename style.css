@@ -1,38 +1,620 @@
+/* ==========================================
+   TYME HALL — UNIFIED STYLE SHEET
+   ==========================================*/
+
+/* Base layout */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 body {
-  font-family: sans-serif;
   margin: 0;
-  background: #0c0c0c;
-  color: #f0f0f0;
-  display: flex;
-  justify-content: center;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  background: radial-gradient(circle at top, #071019 0, #020509 45%, #000000 100%);
+  color: #e6ffff;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Shared header */
+
+.tyme-header {
+  padding: 20px 24px 10px;
+}
+
+.tyme-header-inner {
+  display: inline-flex;
   align-items: center;
-  height: 100vh;
+  gap: 14px;
 }
-.center {
+
+.tyme-sigil {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid #56e2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #7fffd4;
+  box-shadow: 0 0 18px rgba(86, 226, 255, 0.55);
+}
+
+.tyme-title {
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.tyme-subtitle {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7c9bb0;
+}
+
+/* Buttons / controls */
+
+.tyme-button {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid #56e2ff;
+  background: radial-gradient(circle at top, #0c2330 0, #050b10 70%);
+  color: #e6ffff;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.tyme-button:hover {
+  border-color: #7fffd4;
+  box-shadow: 0 0 14px rgba(127, 255, 212, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Door hero */
+
+.door-hero {
+  max-width: 800px;
+  margin: 4px auto 18px;
+  padding: 0 24px;
+  color: #bed9e6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.door-hero p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Hall layout */
+
+.hall-wrapper {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  padding: 0 16px 24px;
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.hall-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.hall-tile {
+  background: #050b11;
+  border-radius: 10px;
+  border: 1px solid #1e3a45;
+  padding: 20px 0;
   text-align: center;
+  color: #c3f4f4;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.25s ease;
 }
-.title {
-  font-size: 2em;
-  margin-bottom: 1em;
+
+.hall-tile:hover {
+  border-color: #56e2ff;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(86, 226, 255, 0.4);
+  transform: translateY(-2px);
 }
-.tap-grid {
+
+.hall-frame-wrap {
+  background: #05080d;
+  border-radius: 12px;
+  border: 1px solid #1e3a45;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+.hall-frame {
+  width: 100%;
+  height: 640px;
+  border: none;
+  background: transparent;
+}
+
+/* Responsive tweaks */
+
+@media (max-width: 900px) {
+  .hall-wrapper {
+    grid-template-columns: 1fr;
+  }
+
+  .door-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Chamber shared layout */
+
+.chamber-container {
+  max-width: 960px;
+  margin: 0 auto 40px;
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.chamber-card {
+  background: #050a0f;
+  border-radius: 10px;
+  border: 1px solid #1e3a45;
+  padding: 16px 18px;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.6);
+}
+
+.chamber-card-title {
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9efbff;
+  margin-bottom: 10px;
+}
+
+/* Console chamber (Stone 4) */
+
+#console-container {
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+.console-input {
+  width: 100%;
+  padding: 14px;
+  background: #0f1519;
+  color: #e6ffff;
+  border: 1px solid #1e3a45;
+  border-radius: 8px;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  outline: none;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+
+.console-input::placeholder {
+  color: #587081;
+}
+
+.console-input:focus {
+  border-color: #56e2ff;
+  box-shadow: 0 0 10px rgba(86, 226, 255, 0.5);
+}
+
+.console-output {
+  margin-top: 16px;
+  padding: 14px;
+  background: #05080b;
+  border-radius: 8px;
+  border: 1px solid #1e3a45;
+  min-height: 80px;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  color: #d8fdfd;
+}
+
+/* Signals chamber (Stone 5) */
+
+.pulse-ring {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 2px solid #7fffd4;
+  transition: transform 0.6s ease, box-shadow 0.6s ease;
+}
+
+.cycle-indicator {
+  font-size: 20px;
+  text-align: center;
+  color: #9efbff;
+  letter-spacing: 0.1em;
+}
+
+.avot-map {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.avot-node {
+  padding: 10px;
+  background: #11181c;
+  border: 1px solid #1e3a45;
+  border-radius: 6px;
+  text-align: center;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  text-transform: uppercase;
+  transition: box-shadow 0.3s, background 0.3s;
+}
+
+.avot-node.lit {
+  background: #162b2f;
+  box-shadow: 0 0 10px rgba(127, 255, 212, 0.4);
+}
+
+.signal-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+}
+
+.signal-bar {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #56e2ff, #7fffd4);
+  transition: width 0.6s ease;
+  width: 50%;
+}
+
+/* Panoptic chamber (Stone 6) */
+
+.panoptic-field {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(48, 88, 96, 0.1), rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+  z-index: -1;
+  animation: shimmer 8s ease-in-out infinite alternate;
+}
+
+@keyframes shimmer {
+  from { opacity: 0.2; filter: blur(4px); }
+  to   { opacity: 0.45; filter: blur(8px); }
+}
+
+.epoch-ring {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+  padding: 10px;
+}
+
+.epoch-seg {
+  padding: 10px;
+  background: #11181c;
+  border: 1px solid #1e3a45;
+  border-radius: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7faeb0;
+  transition: 0.3s ease;
+}
+
+.epoch-seg.active {
+  background: #162b2f;
+  color: #e6ffff;
+  box-shadow: 0 0 12px rgba(86, 226, 255, 0.4);
+}
+
+.vector-bar {
+  margin-bottom: 14px;
+}
+
+.vector-bar span {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  color: #9efbff;
+}
+
+.vec-fill {
+  height: 10px;
+  width: 0%;
+  background: linear-gradient(90deg, #56e2ff, #7fffd4);
+  border-radius: 4px;
+  transition: width 0.7s ease;
+}
+
+/* AVOT directory (Stone 7) */
+
+.avot-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1em;
-  margin-bottom: 1em;
+  gap: 16px;
 }
-button {
-  padding: 1em;
-  background: #222;
-  color: #0ff;
-  border: 1px solid #0ff;
+
+.avot-card {
+  background: #101619;
+  border: 1px solid #1e3a45;
   border-radius: 8px;
-  font-size: 1em;
+  padding: 18px;
+  text-align: center;
+  transition: 0.3s ease;
 }
-iframe {
-  width: 90vw;
-  height: 40vh;
-  border: none;
-  background: #111;
+
+.avot-card:hover {
+  border-color: #7fffd4;
+  box-shadow: 0 0 12px rgba(127, 255, 212, 0.3);
+}
+
+.avot-glyph {
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.avot-name {
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e6ffff;
+  margin-bottom: 6px;
+}
+
+.avot-card.pulse {
+  box-shadow: 0 0 16px rgba(127, 255, 212, 0.6);
+  transform: scale(1.03);
+}
+
+/* Lab chamber (Stone 8) */
+
+.lab-output {
+  background: #0c1014;
+  border: 1px solid #1e3a45;
+  padding: 14px;
+  margin-top: 14px;
+  border-radius: 6px;
+  color: #e6ffff;
+  overflow-x: auto;
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+}
+
+.avot-bench {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cycle-select {
+  padding: 8px;
+  background: #0f1519;
+  color: #e6ffff;
+  border: 1px solid #1e3a45;
+  border-radius: 6px;
+  margin-right: 8px;
+}
+
+/* Codex chamber (Stone 9) */
+
+.codex-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.codex-select {
+  padding: 8px;
+  background: #0f1519;
+  color: #e6ffff;
+  border: 1px solid #1e3a45;
+  border-radius: 6px;
+}
+
+.codex-content {
+  background: #05080b;
+  border: 1px solid #1e3a45;
+  border-radius: 6px;
+  padding: 14px;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  color: #d8fdfd;
+}
+
+/* Glyph sanctuary (Stone 10) */
+
+.glyph-card {
+  text-align: center;
+}
+
+.glyph-title {
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9efbff;
+  margin-bottom: 10px;
+}
+
+.glyph-image {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 8px rgba(127, 255, 212, 0.5));
+}
+
+.glyph-placeholder {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: #7fffd4;
+  filter: drop-shadow(0 0 6px rgba(127, 255, 212, 0.5));
+}
+
+.epoch-glyph-grid,
+.avot-glyph-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.epoch-glyph {
+  text-align: center;
+  padding: 10px;
+  background: #0f1519;
+  border: 1px solid #1e3a45;
+  border-radius: 8px;
+  transition: 0.25s ease;
+}
+
+.epoch-glyph span {
+  font-size: 11px;
+}
+
+.epoch-glyph:hover {
+  background: #162327;
+  border-color: #56e2ff;
+  box-shadow: 0 0 12px rgba(86, 226, 255, 0.3);
+}
+
+/* Archives chamber (Stone 11) */
+
+.archive-timeline {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.timeline-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e3a45;
+}
+
+.timeline-time {
+  font-size: 11px;
+  color: #7c9bb0;
+  margin-bottom: 2px;
+}
+
+.timeline-command {
+  font-size: 13px;
+  color: #e6ffff;
+}
+
+.archive-log {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e3a45;
+}
+
+.log-header {
+  font-size: 11px;
+  color: #7c9bb0;
+  margin-bottom: 2px;
+}
+
+.log-body {
+  font-size: 13px;
+  color: #d8fdfd;
+}
+
+.snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.snapshot-card {
+  background: #0f1519;
+  border: 1px solid #1e3a45;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: #c8eded;
+}
+
+.snapshot-label {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9efbff;
+  margin-bottom: 4px;
+}
+
+/* Portals chamber (Stone 12) */
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.portal-card {
+  background: #101619;
+  border: 1px solid #1e3a45;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  text-decoration: none;
+  color: #c8eded;
+  display: block;
+  transition: 0.25s ease;
+}
+
+.portal-card:hover {
+  background: #162327;
+  border-color: #56e2ff;
+  color: #e6ffff;
+  box-shadow: 0 0 14px rgba(86, 226, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.portal-glyph {
+  font-size: 32px;
+  margin-bottom: 10px;
+  color: #7fffd4;
+  filter: drop-shadow(0 0 6px rgba(127, 255, 212, 0.5));
+}
+
+.portal-label {
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
