@@ -2,82 +2,101 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tyme Signals — Resonance Guidance</title>
-  <style>
-    body {
-      background: radial-gradient(circle at 20% 20%, #0a1a2b, #05080f 60%);
-      color: #def5ff;
-      font-family: "Space Grotesk", Arial, sans-serif;
-      margin: 0;
-      padding: 32px;
-      text-align: center;
-    }
-    h1 {
-      color: #7ce7ff;
-      letter-spacing: 1px;
-    }
-    .panel {
-      background: rgba(15, 30, 45, 0.75);
-      border: 1px solid rgba(124, 231, 255, 0.3);
-      border-radius: 14px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-      padding: 20px;
-      max-width: 720px;
-      margin: 20px auto;
-      text-align: left;
-    }
-    .muted { color: #8fb6c6; }
-    .pill {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, #0ef, #6fffd8);
-      color: #02111f;
-      font-weight: bold;
-      margin-bottom: 12px;
-    }
-    .vector, .gradient {
-      font-family: "SFMono-Regular", Consolas, monospace;
-      background: #0d1926;
-      padding: 10px;
-      border-radius: 8px;
-      color: #9de3ff;
-      overflow-x: auto;
-    }
-    ul { padding-left: 16px; }
-  </style>
+  <title>Tyme Signals</title>
+  <link rel="stylesheet" href="../style.css">
 </head>
 <body>
-  <h1>Signals: Resonance Guidance Loop</h1>
-  <p class="muted">C33 introduces a live resonance vector + gradient monitor to steer evolutionary parameters.</p>
 
-  <div class="panel" id="resonance-panel">
-    <div class="pill">Resonance Guidance</div>
-    <div id="resonance-content" class="muted">Loading resonance snapshot…</div>
+<div class="tyme-header">
+  <div class="tyme-header-inner">
+    <div class="tyme-sigil">⧈</div>
+    <div>
+      <div class="tyme-title">SIGNALS</div>
+      <div class="tyme-subtitle">RESONANCE OBSERVATORY</div>
+    </div>
+  </div>
+</div>
+
+<div class="chamber-container">
+
+  <!-- RESONANCE PULSE -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Resonance Pulse</div>
+    <div id="pulse-ring" class="pulse-ring"></div>
   </div>
 
-  <script>
-    async function loadResonance() {
-      const container = document.getElementById('resonance-content');
-      try {
-        const res = await fetch('/chronicle/resonance-latest.json');
-        if (!res.ok) throw new Error('missing resonance file');
-        const data = await res.json();
-        container.innerHTML = `
-          <p><strong>Version:</strong> v${data.version || 'N/A'}</p>
-          <p><strong>Mode:</strong> ${data.mode || 'unknown'}</p>
-          <p class="vector"><strong>Vector:</strong> ${JSON.stringify(data.resonance_vector || [])}</p>
-          <p class="gradient"><strong>Gradient:</strong> ${JSON.stringify(data.resonance_gradient || [])}</p>
-          <p><strong>Influence:</strong></p>
-          <ul>${Object.entries(data.influence || {}).map(([k,v]) => `<li>${k}: ${v}</li>`).join('') || '<li>None</li>'}</ul>
-        `;
-      } catch (err) {
-        console.error(err);
-        container.innerHTML = '<em>Resonance snapshot not yet available.</em>';
-      }
-    }
+  <!-- CYCLE INTENSITY -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Cycle Intensity</div>
+    <div id="cycle-indicator" class="cycle-indicator"></div>
+  </div>
 
-    loadResonance();
-  </script>
+  <!-- AVOT ACTIVITY MAP -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">AVOT Influence</div>
+    <div class="avot-map">
+      <div class="avot-node" id="guardian">Guardian</div>
+      <div class="avot-node" id="fabricator">Fabricator</div>
+      <div class="avot-node" id="convergence">Convergence</div>
+      <div class="avot-node" id="harmonia">Harmonia</div>
+      <div class="avot-node" id="archivist">Archivist</div>
+      <div class="avot-node" id="initiate">Initiate</div>
+    </div>
+  </div>
+
+  <!-- SIGNAL QUALITY -->
+  <div class="chamber-card">
+    <div class="chamber-card-title">Signal Quality</div>
+    <div class="signal-bars">
+      <div class="signal-bar" id="coherence"></div>
+      <div class="signal-bar" id="clarity"></div>
+      <div class="signal-bar" id="load"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function randomRange(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+// Animate pulse ring
+setInterval(() => {
+  const ring = document.getElementById("pulse-ring");
+  if (!ring) return;
+  const scale = randomRange(0.95, 1.08);
+  ring.style.transform = `scale(${scale})`;
+  ring.style.boxShadow = `0 0 ${randomRange(6, 18)}px rgba(127,255,212,0.5)`;
+}, 700);
+
+// Animate cycle indicator
+setInterval(() => {
+  const el = document.getElementById("cycle-indicator");
+  if (!el) return;
+  const idx = Math.floor(randomRange(1, 24));
+  el.innerText = "Cycle: C" + String(idx).padStart(2, "0");
+}, 900);
+
+// AVOT pulses
+const avots = ["guardian","fabricator","convergence","harmonia","archivist","initiate"];
+setInterval(() => {
+  const pick = avots[Math.floor(Math.random()*avots.length)];
+  document.querySelectorAll(".avot-node").forEach(n => n.classList.remove("lit"));
+  const el = document.getElementById(pick);
+  if (el) el.classList.add("lit");
+}, 1200);
+
+// Signal quality bars
+setInterval(() => {
+  ["coherence","clarity","load"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const width = randomRange(20, 100);
+    el.style.width = width + "%";
+  });
+}, 1100);
+</script>
+
 </body>
 </html>
