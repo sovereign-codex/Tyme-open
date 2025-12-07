@@ -14,6 +14,8 @@ It is intentionally minimal, serving as the executable anchor for future expansi
 """
 
 from typing import Callable, Dict, Any
+from backend.state.epoch_engine import increment_cycle, get_epoch_state
+from backend.chronicle.chronicle import log_orchestration_run
 
 # -------------------------------------------------------------------
 # Cycle Registry (C01–C24)
@@ -159,7 +161,71 @@ def orchestrate_single(code: str, context: Any = None) -> Any:
     Run a single cycle.
     """
     return run_cycle(code, context)
+# --------------------------------------------------------------
+# New Orchestration Layer: Tyme-Aware CMS Routing
+# --------------------------------------------------------------
 
+def orchestrate_from_cms(command: str, context: Any = None) -> Any:
+    """
+    High-level entry used by cms_bindings → orchestration engine → AVOTs.
+    
+    Expected canonical forms:
+        tyme.init()
+        tyme.orchestrate(24)
+        tyme.cycle("C07")
+        avot.fabricator.draft()
+        avot.guardian.check()
+        evolve.next()
+        rhythm.set(3)
+    """
+
+    if command.startswith("tyme.init"):
+        return {"status": "ok", "result": "Tyme initialized."}
+
+    if command.startswith("tyme.last"):
+        return {"status": "ok", "result": "Returning last orchestration result."}
+
+    # ----------------------------------------------------------
+    # Handle orchestration of cycles
+    # ----------------------------------------------------------
+    if command.startswith("tyme.orchestrate("):
+        count = int(command.replace("tyme.orchestrate(", "").replace(")", ""))
+        results = []
+        for i in range(1, count + 1):
+            code = f"C{i:02d}"
+            results.append(run_cycle(code, context))
+        return {"status": "ok", "results": results}
+
+    if command.startswith("tyme.cycle("):
+        code = command.replace('tyme.cycle("', "").replace('")', "")
+        return {"status": "ok", "result": run_cycle(code, context)}
+
+    # ----------------------------------------------------------
+    # Dispatch to AVOTs
+    # ----------------------------------------------------------
+    if command.startswith("avot."):
+        from avot_core.avot_tyme import dispatch_avot_command
+        return dispatch_avot_command(command)
+
+    # ----------------------------------------------------------
+    # Evolution / Epoch / Rhythm
+    # ----------------------------------------------------------
+    if command.startswith("epoch."):
+        from avot_core.epoch import handle_epoch_command
+        return handle_epoch_command(command)
+
+    if command.startswith("rhythm."):
+        from avot_core.rhythm import handle_rhythm_command
+        return handle_rhythm_command(command)
+
+    if command.startswith("evolve."):
+        from avot_core.evolve import handle_evolution_command
+        return handle_evolution_command(command)
+
+    # ----------------------------------------------------------
+    # Unknown case
+    # ----------------------------------------------------------
+    return {"status": "error", "message": f"Unrecognized orchestration command: {command}"}
 # -------------------------------------------------------------------
 # Future Hooks (Not yet implemented)
 # -------------------------------------------------------------------
