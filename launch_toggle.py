@@ -47,3 +47,11 @@ while True:
         break
     else:
         print("Invalid choice. Please select 1–6.")
+
+elif mode == "7":
+        print("\n[Safe Sandbox Runner] Run a command inside the safe sandbox.\n")
+        cmd = input("Enter command to run in sandbox: ")
+        repo = input("Repo path (default .): ") or "."
+        subprocess.run(["python3", "sandbox/sandbox_runner.py", "--cmd", cmd, "--repo", repo])
+    else:
+        print("Invalid choice. Please select 1–7.")
