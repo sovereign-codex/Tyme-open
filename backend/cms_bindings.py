@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 import re
+from backend.chronicle.chronicle import log_cms_event
 
 # -------------------------------------------------------------------
 # Backend bindings (soft imports so early boot doesn't crash)
@@ -88,6 +89,45 @@ class CMSExecutionResult:
 
 def execute(text: str) -> CMSExecutionResult:
     """
+    Main CMS interpreter entrypoint.
+    Converts natural input → canonical form → executes → logs → returns.
+    """
+
+    # 1. Normalize text input
+    raw_text = text.strip()
+
+    # 2. Determine mode (natural or CMS shorthand)
+    mode = "natural"
+    canonical = raw_text
+    if raw_text.startswith("tyme.") or raw_text.startswith("avot."):
+        mode = "cms"
+        canonical = raw_text
+    else:
+        # Optional: natural → canonical transform
+        canonical = interpret_natural_language(raw_text)
+
+    # 3. Execute the canonical CMS code
+    try:
+        result = execute_cms(canonical)
+        summary = str(result)[:200] if result is not None else ""
+    except Exception as e:
+        result = {"error": str(e)}
+        summary = f"ERROR: {e}"
+
+    # 4. Chronicle logging — NEW LINE
+    log_cms_event(
+        command_text=raw_text,
+        mode=mode,
+        result_summary=summary
+    )
+
+    # 5. Return full response object
+    return {
+        "input": raw_text,
+        "mode": mode,
+        "canonical": canonical,
+        "result": result
+    }
     Execute a string that might be:
     - a CMS shorthand command (tyme.*, avot.*, epoch.*, rhythm.*, evolve.*)
     - a natural-language command with recognizable intent
