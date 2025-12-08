@@ -92,6 +92,30 @@ def execute(text: str) -> CMSExecutionResult:
     Main CMS interpreter entrypoint.
     Converts natural input → canonical form → executes → logs → returns.
     """
+    
+if parsed.ns == "tyme" and parsed.name in ("codex_patch", "apply_patch"):
+    branch = parsed.args[0]
+    prompt = parsed.args[1] if len(parsed.args) > 1 else None
+    commit_msg = parsed.args[2] if len(parsed.args) > 2 else None
+
+    from governance.policy_engine import PolicyEngine
+    from backend.codex_patch_handler import codex_patch
+
+    policy = PolicyEngine("governance/policy-default.yaml")
+
+    result = codex_patch(
+        branch=branch,
+        prompt=prompt,
+        commit_message=commit_msg,
+        policy_engine=policy,
+    )
+
+    return CMSExecutionResult(
+        mode="shorthand",
+        canonical=f"tyme.codex_patch({branch})",
+        parsed=parsed,
+        result=result
+    )
 
     # 1. Normalize text input
     raw_text = text.strip()
