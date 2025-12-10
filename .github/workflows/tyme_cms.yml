@@ -1,0 +1,46 @@
+name: Tyme CMS
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "CMS Command (e.g., tyme.patch(...))"
+        required: true
+        type: string
+
+jobs:
+  run-tyme-cms:
+    name: Execute Tyme CMS Command
+    runs-on: ubuntu-latest
+
+    environment: tyme-runtime
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install openai gitpython pyyaml
+
+      - name: Run Tyme CMS
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TYME_GITHUB_TOKEN: ${{ secrets.TYME_GITHUB_TOKEN }}
+          TYME_POLICY_MODE: ${{ secrets.TYME_POLICY_MODE }}
+          TYME_MODEL: ${{ secrets.TYME_MODEL }}
+          TYME_ORIGIN: ${{ secrets.TYME_ORIGIN }}
+        run: |
+          echo "Running Tyme CMS command:"
+          echo "${{ github.event.inputs.command }}"
+          python3 backend/cms_bindings.py "${{ github.event.inputs.command }}"
