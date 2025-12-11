@@ -126,7 +126,88 @@ def run_plan(plan: dict):
         content = step.get("content", "")
         mode = step.get("mode", "append")
 
+from pathlib import Path
+import json
+
+def apply_op(op):
+    """
+    Apply a CMS operation of the form:
+    {
+        "op": "overwrite" | "append" | "patch" | "mkdir",
+        "file": "path/to/file",
+        "mode": "overwrite" | "append" | "mkdir" | "patch",
+        "content": "text or JSON"
+    }
+    """
+
+    operation = op.get("op") or op.get("mode")
+    file_path = Path(op["file"])
+
+    # --------------------------------------------------------
+    # 1. MKDIR SUPPORT
+    # --------------------------------------------------------
+    if operation == "mkdir":
+        file_path.mkdir(parents=True, exist_ok=True)
+        return {"status": "ok", "detail": f"directory created: {file_path}"}
+
+    # --------------------------------------------------------
+    # 2. ENSURE PARENT FOLDERS EXIST
+    # --------------------------------------------------------
+    if file_path.parent and not file_path.parent.exists():
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # --------------------------------------------------------
+    # 3. OVERWRITE MODE
+    # --------------------------------------------------------
+    if operation == "overwrite":
+        file_path.write_text(op.get("content", ""), encoding="utf-8")
+        return {"status": "ok", "detail": f"overwrite {file_path}"}
+
+    # --------------------------------------------------------
+    # 4. APPEND MODE
+    # --------------------------------------------------------
+    if operation == "append":
+        with file_path.open("a", encoding="utf-8") as f:
+            f.write(op.get("content", ""))
+        return {"status": "ok", "detail": f"append {file_path}"}
+
+    # --------------------------------------------------------
+    # 5. PATCH MODE — replace whole file for now
+    # (We can implement real patch logic later)
+    # --------------------------------------------------------
+    if operation == "patch":
+        # Read old content
+        old = ""
+        if file_path.exists():
+            old = file_path.read_text(encoding="utf-8")
+
+        # Simple patch: append new content
+        new = old + op.get("content", "")
+        file_path.write_text(new, encoding="utf-8")
+        return {"status": "ok", "detail": f"patched {file_path}"}
+
+    # --------------------------------------------------------
+    # 6. UNKNOWN OPERATION
+    # --------------------------------------------------------
+    return {"status": "error", "detail": f"unknown op: {operation}", "op": op}
+        
         if not op or not file_path:
+                # --- PATH SAFETY & NORMALIZATION FIX ---
+    # Strip accidental leading "./", "/", or whitespace
+    file_path = file_path.strip().lstrip("./")
+
+    # Prevent self-referential or recursive directory creation
+    # Example: "forge/forge/forge/heartbeat.md"
+    while "//" in file_path:
+        file_path = file_path.replace("//", "/")
+
+    # Prevent creation of directories that match file names
+    # (GitHub Actions bug sometimes repeats directory names)
+    parts = file_path.split("/")
+    if len(parts) > 2 and parts[-1].startswith(parts[-2]):
+        # Collapse duplicated segments
+        parts = parts[:-1] + [parts[-1].replace(parts[-2], "")]
+        file_path = "/".join([p for p in parts if p])
             raise RuntimeError(f"Invalid step (missing op or file): {step}")
 
         print(f"STEP: {op} {file_path} (mode={mode})")
