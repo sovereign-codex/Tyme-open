@@ -1,44 +1,21 @@
-#!/usr/bin/env python3
-"""
-TYME CMS v2 – Natural Language Repository Engine
-
-This script is invoked from GitHub Actions like:
-
-  python3 backend/cms_bindings.py "<natural language command>"
-
-It:
-  1. Cleans the raw CLI string (mobile-safe).
-  2. Calls an OpenAI model to transform the request into a JSON "plan".
-  3. Applies the plan to the repository (creating dirs/files as needed).
-  4. Commits the changes with a summary message.
-"""
-
 import os
 import sys
 import json
 import re
 import subprocess
-from pathlib import Path
+from datetime import datetime
 
-# ---------------------------------------------------------------------
-# Repo context
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Helpers: shell + filesystem
+# ---------------------------------------------------------
 
-# This file lives in backend/, so the repo root is one level up
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-
-# ---------------------------------------------------------------------
-# Shell helper
-# ---------------------------------------------------------------------
-
-def run(cmd: str, cwd: Path | str = REPO_ROOT) -> str:
-    """Run a shell command and return stdout, raising on non-zero exit."""
+def run(cmd, cwd="."):
+    """Run a shell command and stream output."""
     print(f"$ {cmd}")
     result = subprocess.run(
         cmd,
         shell=True,
-        cwd=str(cwd),
+        cwd=cwd,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -49,272 +26,346 @@ def run(cmd: str, cwd: Path | str = REPO_ROOT) -> str:
     return result.stdout
 
 
-# ---------------------------------------------------------------------
-# Path safety & normalization
-# ---------------------------------------------------------------------
+def ensure_dir(path: str):
+    """Ensure the parent directory for a file path exists."""
+    d = os.path.dirname(path)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
 
-ALLOWED_OPS = {"patch", "create", "replace", "delete", "mkdir"}
 
-
-def normalize_rel_path(raw: str) -> str:
+def normalize_path(file_path: str) -> str:
     """
-    Normalize a repo-relative path string and enforce safety invariants.
+    Normalize and safety-check a repository-relative path.
 
-    - Strips whitespace and leading "./"
-    - Rejects attempts to escape the repo (..)
-    - Rejects touching .git
-    - Collapses duplicate slashes
+    - Strips leading "./" or spaces
+    - Collapses repeated slashes
+    - Blocks ".." traversal
     """
-    if not raw:
-        raise ValueError("Empty file path")
+    if not file_path:
+        return file_path
 
-    p = raw.strip().strip("\"'")  # strip quotes, whitespace
-    p = p.lstrip("./")
+    # Strip quotes / whitespace just in case
+    fp = str(file_path).strip().strip('"').strip("'")
 
-    # Basic safety: no parent escapes
-    parts = [part for part in p.split("/") if part not in ("", ".")]
-    if ".." in parts:
-        raise RuntimeError(f"Unsafe path (contains '..'): {raw}")
+    # Strip leading "./"
+    fp = re.sub(r"^(\./)+", "", fp)
 
-    # No .git meddling
-    if parts and parts[0] == ".git":
-        raise RuntimeError(f"Unsafe path (touches .git): {raw}")
+    # Collapse repeated slashes
+    fp = re.sub(r"/+", "/", fp)
 
-    # Collapse duplicate / and rebuild
-    clean = "/".join(parts)
-    return clean
+    # Split and block ".."
+    parts = [p for p in fp.split("/") if p not in ("", ".")]
+    if any(p == ".." for p in parts):
+        raise RuntimeError(f"Unsafe path with '..' not allowed: {file_path}")
 
-
-def ensure_parent_dirs(rel_path: str) -> None:
-    """Ensure parent directories for the given repo-relative path exist."""
-    full = REPO_ROOT / rel_path
-    parent = full.parent
-    if parent and not parent.exists():
-        print(f"[dirs] creating parent dirs for {rel_path}")
-        parent.mkdir(parents=True, exist_ok=True)
+    # Re-join
+    return "/".join(parts)
 
 
-# ---------------------------------------------------------------------
-# NLC engine
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Chronicle Layer (logs + system index)
+# ---------------------------------------------------------
 
-def clean_raw_input(raw: str) -> str:
+CHRONICLE_DIR = "chronicle"
+CMS_LOG = os.path.join(CHRONICLE_DIR, "cms-log.jsonl")
+ORCH_LOG = os.path.join(CHRONICLE_DIR, "orchestration-log.jsonl")
+SYSTEM_INDEX = os.path.join(CHRONICLE_DIR, "system-index.json")
+ERROR_LOG = os.path.join(CHRONICLE_DIR, "cms-errors.log")
+
+
+def now_iso() -> str:
+    return datetime.utcnow().isoformat() + "Z"
+
+
+def chronicle_append(path: str, payload: dict):
+    """Append a JSON line to a Chronicle log file."""
+    ensure_dir(path)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def chronicle_load_index() -> dict:
+    if not os.path.exists(SYSTEM_INDEX):
+        return {}
+    try:
+        with open(SYSTEM_INDEX, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        # If index is corrupted, log it and start fresh
+        chronicle_append(
+            ERROR_LOG,
+            {
+                "ts": now_iso(),
+                "kind": "index_load_error",
+                "error": str(e),
+            },
+        )
+        return {}
+
+
+def chronicle_save_index(index: dict):
+    ensure_dir(SYSTEM_INDEX)
+    with open(SYSTEM_INDEX, "w", encoding="utf-8") as f:
+        json.dump(index, f, indent=2, ensure_ascii=False)
+
+
+def chronicle_update_index(plan: dict):
     """
-    Clean the raw CLI argument into a stable instruction string.
-
-    Handles:
-      - extra quotes injected by shells / mobile interfaces
-      - accidental wrapping like tyme.something("...")
+    Update TYME System Index with the latest run + affected scrolls.
     """
+    index = chronicle_load_index()
+    index.setdefault("version", 1)
+    index.setdefault("runs", [])
+    index.setdefault("scrolls", {})
+
+    ts = now_iso()
+
+    # Record this run
+    run_entry = {
+        "ts": ts,
+        "summary": plan.get("summary"),
+        "step_count": len(plan.get("steps", [])),
+    }
+    index["runs"].append(run_entry)
+    index["last_run"] = run_entry
+
+    # Track scrolls touched in this plan
+    for step in plan.get("steps", []):
+        file_path = step.get("file") or ""
+        norm = normalize_path(file_path)
+        if norm.startswith("scrolls/"):
+            scroll_entry = index["scrolls"].get(norm, {})
+            scroll_entry.update(
+                {
+                    "last_op": step.get("op"),
+                    "last_updated": ts,
+                }
+            )
+            index["scrolls"][norm] = scroll_entry
+
+    index["updated_at"] = ts
+    chronicle_save_index(index)
+
+
+# ---------------------------------------------------------
+# Natural Language Command Engine (NLC)
+# ---------------------------------------------------------
+
+def run_nlc(raw: str):
+    """
+    Interpret a natural-language CMS command into structured operations
+    and execute them using an OpenAI model + Chronicle.
+    """
+
+    original_raw = raw
     cleaned = raw.strip()
-
-    # Strip leading and trailing quotes if they enclose the whole string
-    if (cleaned.startswith('"') and cleaned.endswith('"')) or \
-       (cleaned.startswith("'") and cleaned.endswith("'")):
-        cleaned = cleaned[1:-1].strip()
+    print("RAW INPUT:", cleaned)
 
     # If GitHub mobile/web wrapped it like tyme.something(...), strip that.
     cleaned = re.sub(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*\(', '', cleaned)
     cleaned = re.sub(r'\)\s*$', '', cleaned)
 
-    print("RAW INPUT :", raw)
-    print("CLEANED   :", cleaned)
-    return cleaned
+    # Remove any stray unmatched quotes (they just cause parse issues).
+    cleaned = cleaned.replace('"', "").replace("'", "")
 
+    print("CLEANED NLC COMMAND:", cleaned)
 
-def build_system_prompt() -> str:
-    """System prompt describing the CMS JSON plan format."""
-    return """
-You are TYME CMS, an autonomous repository editor operating on a Git
-repository. You NEVER execute shell commands; you ONLY return JSON instructions.
+    system_prompt = """
+You are TYME CMS, an autonomous repository editor.
 
-You will receive a natural-language instruction describing how to modify this
-repository. Convert the instruction into a JSON object called a "plan".
+You will receive a natural-language instruction about how to modify this Git
+repository. Convert the instruction into a JSON object with a field "steps".
 
-Plan JSON format:
+Each step is an object with:
+- "op": one of "patch", "create", "replace", "delete", "mkdir"
+- "file": the relative file path (e.g. "README.md" or "scrolls/xyz.md")
+- "content": string content to write or append (omit for delete/mkdir)
+- "mode": "append" or "overwrite" (only for op = patch/replace)
+
+You may return multiple steps to perform a sequence of changes.
+
+Always use safe, repo-relative paths. Never use absolute paths or "..".
+
+Example:
 
 {
-  "summary": "Short human-readable summary of the change.",
+  "summary": "Add Sovereign Test section to README and create activation scroll",
   "steps": [
     {
-      "op": "patch" | "create" | "replace" | "delete" | "mkdir",
-      "file": "relative/posix/path.ext or directory/",
-      "mode": "append" | "overwrite",   // only for patch/create/replace
-      "content": "string content"       // omit or empty for delete/mkdir
+      "op": "patch",
+      "file": "README.md",
+      "mode": "append",
+      "content": "\\n\\n## Sovereign Test\\nTyme CMS is now live.\\n"
     },
-    ...
+    {
+      "op": "create",
+      "file": "scrolls/sovereign_test.md",
+      "mode": "overwrite",
+      "content": "# Sovereign Test\\nTyme CMS + Forge activation scroll.\\n"
+    }
   ]
 }
 
-Rules:
+Return ONLY JSON. No commentary, no backticks, no markdown.
+"""
 
-- All "file" paths are POSIX style and RELATIVE to the repository root.
-- NEVER use absolute paths.
-- NEVER use ".." to go up directories.
-- NEVER touch .git or its contents.
-- For "mkdir", treat "file" as a directory path and create it (parents=True).
-- For "patch", "create", and "replace":
-    - if mode == "append": append content to the file (create if missing)
-    - if mode == "overwrite": replace the file content entirely
-- For "delete": remove the file if it exists; ignore if missing.
-- Prefer concise changes over large rewrites when possible.
-
-Return ONLY raw JSON. No commentary, no markdown, no code fences.
-""".strip()
-
-
-def run_nlc(raw: str) -> None:
-    """
-    Interpret a natural-language CMS command into a JSON plan and apply it.
-    """
-    cleaned = clean_raw_input(raw)
-
-    system_prompt = build_system_prompt()
     user_prompt = f"Instruction: {cleaned}"
 
     # --- OpenAI call ---
     from openai import OpenAI
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set in the environment.")
-
-    client = OpenAI(api_key=api_key)
-
-    model_name = os.environ.get("TYME_MODEL", "gpt-4o-mini")
-
-    print(f"[openai] model={model_name}")
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.2,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=os.environ.get("TYME_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+        )
+    except Exception as e:
+        # Self-healing: log the failure, but don't crash the workflow
+        chronicle_append(
+            ERROR_LOG,
+            {
+                "ts": now_iso(),
+                "kind": "openai_error",
+                "error": str(e),
+                "raw_instruction": original_raw,
+            },
+        )
+        print(f"OpenAI call failed, logged to {ERROR_LOG}")
+        return
 
     content = response.choices[0].message.content
     print("MODEL RAW OUTPUT:")
     print(content)
 
+    # Self-healing JSON handling
     try:
         plan = json.loads(content)
     except Exception as e:
-        raise RuntimeError(
-            f"Model did not return valid JSON: {e}\n\nRaw content:\n{content}"
+        chronicle_append(
+            ERROR_LOG,
+            {
+                "ts": now_iso(),
+                "kind": "json_parse_error",
+                "error": str(e),
+                "raw_model_output": content,
+                "raw_instruction": original_raw,
+            },
         )
+        print("Model returned invalid JSON. Logged error; no changes applied.")
+        return
 
-    validate_plan(plan)
-    apply_plan(plan)
+    # Chronicle: log the interpreted plan
+    chronicle_append(
+        CMS_LOG,
+        {
+            "ts": now_iso(),
+            "raw_instruction": original_raw,
+            "cleaned_instruction": cleaned,
+            "summary": plan.get("summary"),
+            "step_count": len(plan.get("steps", [])),
+            "model": os.environ.get("TYME_MODEL", "gpt-4o-mini"),
+        },
+    )
 
-
-# ---------------------------------------------------------------------
-# Plan validation & execution
-# ---------------------------------------------------------------------
-
-def validate_plan(plan: dict) -> None:
-    """Basic sanity checks on the returned JSON plan."""
-    if not isinstance(plan, dict):
-        raise RuntimeError(f"Plan must be a JSON object, got: {type(plan)}")
-
-    steps = plan.get("steps")
-    if not isinstance(steps, list) or not steps:
-        raise RuntimeError("Plan must contain a non-empty 'steps' array.")
-
-    for i, step in enumerate(steps):
-        if not isinstance(step, dict):
-            raise RuntimeError(f"Step {i} is not an object: {step!r}")
-
-        op = step.get("op")
-        file_path = step.get("file")
-
-        if op not in ALLOWED_OPS:
-            raise RuntimeError(f"Step {i} has invalid op={op!r}")
-
-        if not isinstance(file_path, str) or not file_path.strip():
-            raise RuntimeError(f"Step {i} missing valid 'file' path.")
-
-        if op in {"patch", "create", "replace"}:
-            mode = step.get("mode", "append")
-            if mode not in {"append", "overwrite"}:
-                raise RuntimeError(
-                    f"Step {i} has invalid mode={mode!r} for op={op!r}"
-                )
-
-    print("[plan] validation OK")
+    run_plan(plan)
 
 
-def apply_plan(plan: dict) -> None:
+# ---------------------------------------------------------
+# Plan execution (Forge) + orchestration logging
+# ---------------------------------------------------------
+
+def run_plan(plan: dict):
     """
-    Execute a JSON CMS plan: apply file operations & commit.
+    Execute a JSON CMS plan: apply file operations, update index, commit.
     """
-
     steps = plan.get("steps", [])
     summary = plan.get("summary", "Tyme CMS (NLC) update")
 
+    if not steps:
+        print("No steps provided in plan, nothing to do.")
+        return
+
     for step in steps:
         op = step.get("op")
-        rel_file_raw = step.get("file")
-        content = step.get("content", "") or ""
+        file_path = step.get("file")
+        content = step.get("content", "")
         mode = step.get("mode", "append")
 
-        # Normalize path & check safety
-        rel_path = normalize_rel_path(rel_file_raw)
-        full_path = REPO_ROOT / rel_path
+        if not op or not file_path:
+            raise RuntimeError(f"Invalid step (missing op or file): {step}")
 
-        print(f"STEP: op={op} file={rel_path} mode={mode}")
+        # Normalize/sanitize path
+        file_path = normalize_path(file_path)
 
+        print(f"STEP: {op} {file_path} (mode={mode})")
+
+        # Directory operations
         if op == "mkdir":
-            full_path.mkdir(parents=True, exist_ok=True)
-            continue
+            ensure_dir(os.path.join(file_path, "_dummy.txt"))
+            # Delete the dummy file if it was created
+            dummy = os.path.join(file_path, "_dummy.txt")
+            if os.path.exists(dummy):
+                os.remove(dummy)
 
-        if op in {"patch", "create", "replace"}:
-            ensure_parent_dirs(rel_path)
-            write_mode = "a" if mode == "append" else "w"
-            with full_path.open(write_mode, encoding="utf-8") as f:
+        # File operations
+        elif op in ("patch", "create", "replace"):
+            ensure_dir(file_path)
+            # "replace" behaves like overwrite; "patch" can be append or overwrite
+            write_mode = "a" if (op == "patch" and mode == "append") else "w"
+            with open(file_path, write_mode, encoding="utf-8") as f:
                 f.write(content)
 
         elif op == "delete":
-            if full_path.exists():
-                if full_path.is_dir():
-                    # Be conservative: do not recursively delete directories
-                    raise RuntimeError(
-                        f"Refusing to delete directory: {rel_path}"
-                    )
-                full_path.unlink()
+            if os.path.exists(file_path):
+                os.remove(file_path)
         else:
             raise RuntimeError(f"Unknown op: {op}")
 
+        # Chronicle each step
+        chronicle_append(
+            ORCH_LOG,
+            {
+                "ts": now_iso(),
+                "op": op,
+                "file": file_path,
+                "mode": mode,
+                "summary": summary,
+            },
+        )
+
+    # Update system index
+    chronicle_update_index(plan)
+
     # Git add & commit
-    print("[git] staging and committing changes")
     run("git add .")
     run(f'git commit -m "{summary}" || echo "No changes to commit."')
 
 
-# ---------------------------------------------------------------------
-# Legacy (Python-style) command path – thin shim
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
+# Legacy path (Python-style commands) – optional stub
+# ---------------------------------------------------------
 
-def run_legacy_python_style(raw: str) -> None:
+def run_legacy_python_style(raw: str):
     """
-    Support for legacy invocations like:
-
-      tyme.patch("README.md", "content...")
-
-    For now we simply forward the entire string into NLC with a note
-    so the model can infer intent.
+    If in the future you still want to support commands like
+    tyme.patch("README.md", "..."), you can implement that here.
+    For now, we just forward everything to NLC.
     """
-    print("Legacy Python-style command detected – forwarding to NLC.")
-    # We could pre-parse here in the future; for now, NLC handles it.
+    print("Legacy Python-style command path currently forwards to NLC.")
     run_nlc(raw)
 
 
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
 # Entry point
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------
 
-def main(argv: list[str]) -> None:
-    raw = " ".join(argv).strip()
+if __name__ == "__main__":
+    raw = " ".join(sys.argv[1:]).strip()
     if not raw:
         print("No command provided.")
         sys.exit(0)
@@ -323,11 +374,8 @@ def main(argv: list[str]) -> None:
     python_like = raw.startswith("tyme.") and "(" in raw and ")" in raw
 
     if python_like:
+        print("Detected Python-like command, using legacy handler.")
         run_legacy_python_style(raw)
     else:
         print("Using Natural Language Command Engine (NLC).")
         run_nlc(raw)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
