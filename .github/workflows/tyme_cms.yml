@@ -4,43 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "CMS Command (e.g., tyme.patch(...))"
+        description: "Tyme CMS instruction (natural language is fine)"
         required: true
         type: string
 
 jobs:
-  run-tyme-cms:
-    name: Execute Tyme CMS Command
+  cms:
     runs-on: ubuntu-latest
-
-    environment: tyme-runtime
-
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt || true
-          pip install openai gitpython pyyaml
+          pip install openai
 
-      - name: Run Tyme CMS
+      - name: Run Tyme CMS (NLC)
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          TYME_GITHUB_TOKEN: ${{ secrets.TYME_GITHUB_TOKEN }}
-          TYME_POLICY_MODE: ${{ secrets.TYME_POLICY_MODE }}
-          TYME_MODEL: ${{ secrets.TYME_MODEL }}
-          TYME_ORIGIN: ${{ secrets.TYME_ORIGIN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # make sure this is set
         run: |
-          echo "Running Tyme CMS command:"
-          echo "${{ github.event.inputs.command }}"
           python3 backend/cms_bindings.py "${{ github.event.inputs.command }}"
