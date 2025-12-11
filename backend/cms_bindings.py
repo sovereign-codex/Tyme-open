@@ -3,19 +3,27 @@ import sys
 import json
 import re
 import subprocess
+from pathlib import Path
 
 # ---------------------------------------------------------
-# Helpers
+# Helper: shell runner
 # ---------------------------------------------------------
 
 def run(cmd, cwd="."):
     print(f"$ {cmd}")
-    result = subprocess.run(cmd, shell=True, cwd=cwd, text=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = subprocess.run(
+        cmd,
+        shell=True,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+    )
     print(result.stdout)
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {cmd}")
     return result.stdout
+
 
 # ---------------------------------------------------------
 # Natural Language Command Engine (NLC)
@@ -23,18 +31,18 @@ def run(cmd, cwd="."):
 
 def run_nlc(raw: str):
     """
-    Interpret a natural-language CMS command into structured operations
-    and execute them using an OpenAI model.
+    Interpret a natural-language CMS instruction into a structured JSON plan
+    and execute it.
     """
 
     cleaned = raw.strip()
     print("RAW INPUT:", cleaned)
 
-    # If GitHub mobile/web wrapped it like tyme.something(...), strip that.
-    cleaned = re.sub(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*\(', '', cleaned)
-    cleaned = re.sub(r'\)\s*$', '', cleaned)
+    # Remove accidental "tyme.xxx(...)" wrapping from GitHub mobile
+    cleaned = re.sub(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*$begin:math:text$', '', cleaned)
+    cleaned = re.sub(r'$end:math:text$\s*$', '', cleaned)
 
-    # Remove any stray unmatched quotes (they just cause parse issues).
+    # Remove stray quotes
     cleaned = cleaned.replace('"', "").replace("'", "")
 
     print("CLEANED NLC COMMAND:", cleaned)
@@ -42,43 +50,21 @@ def run_nlc(raw: str):
     system_prompt = """
 You are TYME CMS, an autonomous repository editor.
 
-You will receive a natural-language instruction about how to modify this Git
-repository. Convert the instruction into a JSON object with a field "steps".
+You will receive a natural-language instruction describing how to modify this
+Git repository. Convert the instruction into a JSON object with a field "steps".
 
 Each step is an object with:
 - "op": one of "patch", "create", "replace", "delete"
-- "file": the relative file path (e.g. "README.md" or "scrolls/xyz.md")
+- "file": a relative file path (e.g., "README.md", "scrolls/xyz.md")
 - "content": string content to write or append (omit for delete)
-- "mode": "append" or "overwrite" (only for op = patch/replace)
+- "mode": "append" or "overwrite"
 
-You may return multiple steps to perform a sequence of changes.
-
-Example:
-
-{
-  "summary": "Add Sovereign Test section to README and create activation scroll",
-  "steps": [
-    {
-      "op": "patch",
-      "file": "README.md",
-      "mode": "append",
-      "content": "\\n\\n## Sovereign Test\\nTyme CMS is now live.\\n"
-    },
-    {
-      "op": "create",
-      "file": "scrolls/sovereign_test.md",
-      "mode": "overwrite",
-      "content": "# Sovereign Test\\nTyme CMS + Forge activation scroll.\\n"
-    }
-  ]
-}
-
-Return ONLY JSON. No commentary, no backticks, no markdown.
+Return ONLY JSON. No commentary. No markdown. No backticks.
 """
 
     user_prompt = f"Instruction: {cleaned}"
 
-    # --- OpenAI call ---
+    # --- OpenAI API call ---
     from openai import OpenAI
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -86,7 +72,7 @@ Return ONLY JSON. No commentary, no backticks, no markdown.
         model=os.environ.get("TYME_MODEL", "gpt-4o-mini"),
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {"role": "user", "content": user_prompt}
         ],
         temperature=0.2,
     )
@@ -98,10 +84,14 @@ Return ONLY JSON. No commentary, no backticks, no markdown.
     try:
         plan = json.loads(content)
     except Exception as e:
-        raise RuntimeError(f"Model did not return valid JSON: {e}\nRaw: {content}")
+        raise RuntimeError(f"Model did not return valid JSON: {e}\nRaw Output:\n{content}")
 
     run_plan(plan)
 
+
+# ---------------------------------------------------------
+# Directory ensure
+# ---------------------------------------------------------
 
 def ensure_dir(path: str):
     d = os.path.dirname(path)
@@ -109,15 +99,19 @@ def ensure_dir(path: str):
         os.makedirs(d, exist_ok=True)
 
 
+# ---------------------------------------------------------
+# Execute JSON plan
+# ---------------------------------------------------------
+
 def run_plan(plan: dict):
     """
-    Execute a JSON CMS plan: apply file operations & commit.
+    Apply all file operations described in a JSON CMS plan.
     """
     steps = plan.get("steps", [])
-    summary = plan.get("summary", "Tyme CMS (NLC) update")
+    summary = plan.get("summary", "Tyme CMS update")
 
     if not steps:
-        print("No steps provided in plan, nothing to do.")
+        print("No steps in plan; nothing to do.")
         return
 
     for step in steps:
@@ -126,120 +120,62 @@ def run_plan(plan: dict):
         content = step.get("content", "")
         mode = step.get("mode", "append")
 
-from pathlib import Path
-import json
-
-def apply_op(op):
-    """
-    Apply a CMS operation of the form:
-    {
-        "op": "overwrite" | "append" | "patch" | "mkdir",
-        "file": "path/to/file",
-        "mode": "overwrite" | "append" | "mkdir" | "patch",
-        "content": "text or JSON"
-    }
-    """
-
-    operation = op.get("op") or op.get("mode")
-    file_path = Path(op["file"])
-
-    # --------------------------------------------------------
-    # 1. MKDIR SUPPORT
-    # --------------------------------------------------------
-    if operation == "mkdir":
-        file_path.mkdir(parents=True, exist_ok=True)
-        return {"status": "ok", "detail": f"directory created: {file_path}"}
-
-    # --------------------------------------------------------
-    # 2. ENSURE PARENT FOLDERS EXIST
-    # --------------------------------------------------------
-    if file_path.parent and not file_path.parent.exists():
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # --------------------------------------------------------
-    # 3. OVERWRITE MODE
-    # --------------------------------------------------------
-    if operation == "overwrite":
-        file_path.write_text(op.get("content", ""), encoding="utf-8")
-        return {"status": "ok", "detail": f"overwrite {file_path}"}
-
-    # --------------------------------------------------------
-    # 4. APPEND MODE
-    # --------------------------------------------------------
-    if operation == "append":
-        with file_path.open("a", encoding="utf-8") as f:
-            f.write(op.get("content", ""))
-        return {"status": "ok", "detail": f"append {file_path}"}
-
-    # --------------------------------------------------------
-    # 5. PATCH MODE — replace whole file for now
-    # (We can implement real patch logic later)
-    # --------------------------------------------------------
-    if operation == "patch":
-        # Read old content
-        old = ""
-        if file_path.exists():
-            old = file_path.read_text(encoding="utf-8")
-
-        # Simple patch: append new content
-        new = old + op.get("content", "")
-        file_path.write_text(new, encoding="utf-8")
-        return {"status": "ok", "detail": f"patched {file_path}"}
-
-    # --------------------------------------------------------
-    # 6. UNKNOWN OPERATION
-    # --------------------------------------------------------
-    return {"status": "error", "detail": f"unknown op: {operation}", "op": op}
-        
         if not op or not file_path:
-                # --- PATH SAFETY & NORMALIZATION FIX ---
-    # Strip accidental leading "./", "/", or whitespace
-    file_path = file_path.strip().lstrip("./")
-
-    # Prevent self-referential or recursive directory creation
-    # Example: "forge/forge/forge/heartbeat.md"
-    while "//" in file_path:
-        file_path = file_path.replace("//", "/")
-
-    # Prevent creation of directories that match file names
-    # (GitHub Actions bug sometimes repeats directory names)
-    parts = file_path.split("/")
-    if len(parts) > 2 and parts[-1].startswith(parts[-2]):
-        # Collapse duplicated segments
-        parts = parts[:-1] + [parts[-1].replace(parts[-2], "")]
-        file_path = "/".join([p for p in parts if p])
             raise RuntimeError(f"Invalid step (missing op or file): {step}")
+
+        # ---------------------------------------------------------
+        # PATH SAFETY & NORMALIZATION
+        # ---------------------------------------------------------
+        file_path = file_path.strip().lstrip("./")
+
+        # Remove accidental // duplication
+        while "//" in file_path:
+            file_path = file_path.replace("//", "/")
+
+        # Fix recursive directory-node duplication (common Forge error)
+        parts = file_path.split("/")
+        if len(parts) > 2 and parts[-1].startswith(parts[-2]):
+            fixed = parts[-1].replace(parts[-2], "", 1).lstrip("/")
+            parts = parts[:-1] + [fixed]
+            file_path = "/".join([p for p in parts if p])
 
         print(f"STEP: {op} {file_path} (mode={mode})")
 
+        # ---------------------------------------------------------
+        # FILE OPERATIONS
+        # ---------------------------------------------------------
+
         if op in ("patch", "create", "replace"):
             ensure_dir(file_path)
+
             write_mode = "a" if (op == "patch" and mode == "append") else "w"
+
             with open(file_path, write_mode, encoding="utf-8") as f:
                 f.write(content)
 
         elif op == "delete":
             if os.path.exists(file_path):
                 os.remove(file_path)
+
         else:
             raise RuntimeError(f"Unknown op: {op}")
 
-    # Git add & commit
+    # ---------------------------------------------------------
+    # Git commit
+    # ---------------------------------------------------------
+
     run("git add .")
     run(f'git commit -m "{summary}" || echo "No changes to commit."')
 
+
 # ---------------------------------------------------------
-# Legacy path (Python-style commands) – optional stub
+# Legacy (optional)
 # ---------------------------------------------------------
 
 def run_legacy_python_style(raw: str):
-    """
-    If in the future you still want to support commands like
-    tyme.patch("README.md", "..."), you can implement that here.
-    For now, we just forward everything to NLC.
-    """
-    print("Legacy Python-style command path currently forwards to NLC.")
+    print("Legacy Python-style command detected → forwarding to NLC.")
     run_nlc(raw)
+
 
 # ---------------------------------------------------------
 # Entry point
@@ -247,15 +183,14 @@ def run_legacy_python_style(raw: str):
 
 if __name__ == "__main__":
     raw = " ".join(sys.argv[1:]).strip()
+
     if not raw:
         print("No command provided.")
         sys.exit(0)
 
-    # Very loose detection of old Python-like syntax:
     python_like = raw.startswith("tyme.") and "(" in raw and ")" in raw
 
     if python_like:
-        print("Detected Python-like command, using legacy handler.")
         run_legacy_python_style(raw)
     else:
         print("Using Natural Language Command Engine (NLC).")
