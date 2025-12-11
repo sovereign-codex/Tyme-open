@@ -11,7 +11,7 @@ on:
 jobs:
   cms:
     runs-on: ubuntu-latest
-    environment: tyme-runtime
+    environment: Tyme-runtime
     permissions:
       contents: write
 
