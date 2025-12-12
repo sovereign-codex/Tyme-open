@@ -1,389 +1,471 @@
 #!/usr/bin/env python3
 """
-TYME CMS — Sovereign Bindings (NLC + Universal Content Encoder / Universal File Writer)
+TYME CMS Bindings (NLC)
 
-Goals:
-- Accept natural-language instructions, convert to JSON "plan" via OpenAI model
-- Apply plan safely to the repository with robust path normalization
-- Support writing content in ANY language + structured data (dict/list) + optional binary
-- Prevent common GitHub Actions path anomalies (leading '/', './', double slashes, traversal)
-- Avoid NotADirectoryError by ensuring parents are directories (and erroring cleanly if not)
+Goal:
+- Accept a natural-language instruction
+- Ask an OpenAI model for a JSON "plan" describing file operations
+- Apply the plan safely inside the repo workspace
+- Commit changes
+
+Key upgrades vs prior versions:
+- Strict JSON parsing + optional "repair" attempt
+- Typed content support: content_type = "text" | "json"
+- Safe path normalization + repo-root enforcement
+- Prevent directory/file collisions (e.g., "forge" as file vs folder)
+- Deterministic file writes (overwrite/append) and deletes
+- Clear error messages that surface the failing step
 """
 
-import os
-import sys
+from __future__ import annotations
+
 import json
+import os
 import re
 import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# ----------------------------
+# Config
+# ----------------------------
 
-# -----------------------------
-# Helpers
-# -----------------------------
+REPO_ROOT = Path(os.environ.get("GITHUB_WORKSPACE", Path.cwd())).resolve()
 
-def run(cmd: str, cwd: str = ".") -> str:
-    print(f"$ {cmd}")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+TYME_MODEL = os.environ.get("TYME_MODEL", "gpt-4o-mini").strip()
+
+# If True, tries a second model call to repair invalid JSON output
+ALLOW_JSON_REPAIR = os.environ.get("TYME_ALLOW_JSON_REPAIR", "1").strip() != "0"
+
+# If True, prints more details
+DEBUG = os.environ.get("TYME_DEBUG", "1").strip() != "0"
+
+
+# ----------------------------
+# Utilities
+# ----------------------------
+
+def log(*args: Any) -> None:
+    print(*args, flush=True)
+
+
+def run(cmd: str, cwd: Optional[Path] = None, allow_fail: bool = False) -> subprocess.CompletedProcess:
+    if cwd is None:
+        cwd = REPO_ROOT
+    log(f"$ {cmd}")
     result = subprocess.run(
         cmd,
         shell=True,
-        cwd=cwd,
+        cwd=str(cwd),
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-    print(result.stdout)
-    if result.returncode != 0:
-        raise RuntimeError(f"Command failed: {cmd}")
-    return result.stdout
+    log(result.stdout)
+    if (result.returncode != 0) and not allow_fail:
+        raise RuntimeError(f"Command failed ({result.returncode}): {cmd}\n{result.stdout}")
+    return result
 
 
-def normalize_repo_path(raw_path: str) -> str:
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# ----------------------------
+# Path Safety
+# ----------------------------
+
+def normalize_rel_path(p: str) -> str:
     """
-    Normalize a file path to be safe and relative to repo root.
+    Normalize a repo-relative path safely.
+
     - strips whitespace
-    - converts backslashes to forward slashes
-    - strips leading ./ and leading /
-    - collapses // occurrences
-    - blocks traversal (..)
+    - removes accidental leading './' or '/'
+    - collapses repeated slashes
+    - prevents traversal (..)
     """
-    if raw_path is None:
-        raise ValueError("file path is None")
-
-    p = str(raw_path).strip().replace("\\", "/")
+    p = (p or "").strip()
+    p = p.replace("\\", "/")
     while "//" in p:
         p = p.replace("//", "/")
+    p = p.lstrip("/").lstrip("./")
 
-    # remove accidental leading "./" or "/"
-    if p.startswith("./"):
-        p = p[2:]
-    p = p.lstrip("/")
+    # Basic traversal prevention
+    parts = [seg for seg in p.split("/") if seg and seg != "."]
+    if any(seg == ".." for seg in parts):
+        raise ValueError(f"Path traversal is not allowed: {p}")
 
-    # basic traversal protection
-    parts = [x for x in p.split("/") if x not in ("", ".")]
-    if any(x == ".." for x in parts):
-        raise ValueError(f"Path traversal is not allowed: {raw_path}")
-
-    p = "/".join(parts)
-    if not p:
-        raise ValueError(f"Empty/invalid file path: {raw_path}")
-
-    return p
+    # Rebuild
+    return "/".join(parts)
 
 
-def ensure_parent_dir(file_path: str) -> None:
+def resolve_repo_path(rel: str) -> Path:
+    rel_norm = normalize_rel_path(rel)
+    abs_path = (REPO_ROOT / rel_norm).resolve()
+    # Ensure still under REPO_ROOT
+    if REPO_ROOT not in abs_path.parents and abs_path != REPO_ROOT:
+        raise ValueError(f"Resolved path escapes repo root: {rel} -> {abs_path}")
+    return abs_path
+
+
+def ensure_parent_dir(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
+def assert_not_dir_file_collision(target: Path) -> None:
     """
-    Ensure parent directory exists and is a directory.
-    If a path segment exists as a file where a directory is needed, raise.
+    Guard against cases like:
+    - trying to write forge/heartbeat.md when 'forge' exists as a FILE
+    - trying to create a directory where a file already exists, etc.
     """
-    p = Path(file_path)
-    parent = p.parent
-
-    if str(parent) in (".", ""):
-        return
-
-    # Walk up and validate segments are directories (not files)
-    cur = Path(".")
-    for seg in parent.parts:
+    # If any parent is a file, we can't create children under it.
+    cur = REPO_ROOT
+    rel_parts = target.relative_to(REPO_ROOT).parts
+    for seg in rel_parts[:-1]:
         cur = cur / seg
-        if cur.exists() and not cur.is_dir():
+        if cur.exists() and cur.is_file():
             raise NotADirectoryError(
-                f"Cannot create '{parent}': '{cur}' exists and is not a directory."
+                f"Cannot create '{target.relative_to(REPO_ROOT)}' because parent '{cur.relative_to(REPO_ROOT)}' is a FILE."
             )
 
-    parent.mkdir(parents=True, exist_ok=True)
+    # If target exists and is a directory, writing as file is invalid.
+    if target.exists() and target.is_dir():
+        raise IsADirectoryError(
+            f"Cannot write file '{target.relative_to(REPO_ROOT)}' because it is a DIRECTORY."
+        )
 
 
-# -----------------------------
-# Universal Content Encoder (UCE)
-# -----------------------------
+# ----------------------------
+# Plan Schema
+# ----------------------------
 
-def encode_content(content: Any, file_path: str) -> Union[str, bytes]:
+@dataclass
+class Step:
+    op: str
+    file: str
+    mode: str = "overwrite"      # "overwrite" | "append"
+    content: Any = ""            # str or dict
+    content_type: str = "text"   # "text" | "json"
+
+    def normalized(self) -> "Step":
+        op = (self.op or "").strip().lower()
+        mode = (self.mode or "overwrite").strip().lower()
+        content_type = (self.content_type or "text").strip().lower()
+        return Step(op=op, file=self.file, mode=mode, content=self.content, content_type=content_type)
+
+
+@dataclass
+class Plan:
+    summary: str
+    steps: List[Step]
+
+    def normalized(self) -> "Plan":
+        summary = (self.summary or "Tyme CMS update").strip()
+        steps = [s.normalized() for s in self.steps]
+        return Plan(summary=summary, steps=steps)
+
+
+# ----------------------------
+# OpenAI: NLC -> Plan
+# ----------------------------
+
+SYSTEM_PROMPT = """
+You are TYME CMS, an autonomous repository editor.
+
+You will receive an instruction describing how to modify this Git repository.
+Convert the instruction into a JSON object with:
+- "summary": short commit message
+- "steps": an array of step objects
+
+Each step object supports:
+- "op": one of "create", "replace", "patch", "delete", "mkdir"
+- "file": repo-relative path (e.g. "README.md", "scrolls/x.md", "forge/heartbeat.md")
+- "mode": "overwrite" or "append" (for create/replace/patch)
+- "content_type": "text" or "json" (default "text")
+- "content": the content to write.
+    - if content_type == "text": a string
+    - if content_type == "json": an object/array (NOT a string); TYME CMS will serialize it.
+
+Rules:
+- Return ONLY raw JSON. No markdown, no backticks, no comments.
+- Use forward slashes in paths.
+- Do not use absolute paths.
+- Prefer "mkdir" when you need to ensure a directory exists.
+- For JSON files like *.json, you may set content_type="json" and provide a JSON object.
+
+Example:
+
+{
+  "summary": "Add system index",
+  "steps": [
+    {"op":"mkdir","file":"chronicle"},
+    {
+      "op":"replace",
+      "file":"chronicle/system-index.json",
+      "mode":"overwrite",
+      "content_type":"json",
+      "content":{"ok":true,"updated_at":"..."}
+    }
+  ]
+}
+""".strip()
+
+
+def clean_raw_instruction(raw: str) -> str:
+    cleaned = (raw or "").strip()
+    if not cleaned:
+        return ""
+
+    # If GitHub mobile/web wrapped it like tyme.something(...), strip that.
+    # Example: tyme.patch("README.md","hi") -> patch("README.md","hi") -> we discard wrapper entirely.
+    cleaned2 = re.sub(r"^[a-zA-Z_][a-zA-Z0-9_]*\s*\(", "", cleaned)
+    cleaned2 = re.sub(r"\)\s*$", "", cleaned2)
+
+    # We DO NOT strip quotes globally anymore (it breaks JSON-like instructions).
+    # But we normalize weird smart quotes if present.
+    cleaned2 = cleaned2.replace("“", '"').replace("”", '"').replace("’", "'")
+
+    return cleaned2.strip()
+
+
+def _openai_client():
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is missing or empty in environment.")
+    from openai import OpenAI  # imported here to keep script import-safe
+    return OpenAI(api_key=OPENAI_API_KEY)
+
+
+def ask_model_for_plan(instruction: str, repair_from: Optional[str] = None) -> str:
     """
-    Convert arbitrary content to the right on-disk representation.
-
-    Rules:
-    - str => write as-is
-    - bytes/bytearray => write binary
-    - dict/list => serialize by file extension when appropriate
-      * .json/.jsonc => JSON pretty
-      * .yml/.yaml => YAML (if PyYAML installed), else JSON pretty
-      * other => JSON (compact) by default
-    - primitives => str()
+    Returns model output string (should be JSON).
+    If repair_from is provided, asks model to repair invalid JSON.
     """
-    if isinstance(content, str):
-        return content
+    client = _openai_client()
 
-    if isinstance(content, (bytes, bytearray)):
-        return bytes(content)
+    if repair_from is None:
+        user_prompt = f"Instruction: {instruction}"
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ]
+    else:
+        # JSON repair mode: model must output corrected JSON only.
+        messages = [
+            {"role": "system", "content": "You are a strict JSON repair tool. Return ONLY valid JSON, nothing else."},
+            {"role": "user", "content": "Fix this into valid JSON for the TYME CMS plan schema:"},
+            {"role": "user", "content": repair_from},
+        ]
 
-    ext = Path(file_path).suffix.lower().lstrip(".")
+    response = client.chat.completions.create(
+        model=TYME_MODEL,
+        messages=messages,
+        temperature=0.2,
+    )
+    content = response.choices[0].message.content or ""
+    return content.strip()
 
-    if isinstance(content, (dict, list)):
-        if ext in ("json", "jsonc"):
-            return json.dumps(content, indent=2, ensure_ascii=False) + "\n"
 
-        if ext in ("yml", "yaml"):
+def parse_plan(model_output: str) -> Plan:
+    """
+    Parses model output into Plan, validating basic structure.
+    Accepts content as either str or dict (if content_type json).
+    """
+    try:
+        data = json.loads(model_output)
+    except Exception as e:
+        raise ValueError(f"Model did not return valid JSON: {e}\nRaw:\n{model_output}")
+
+    if not isinstance(data, dict):
+        raise ValueError(f"Plan JSON must be an object, got: {type(data)}")
+
+    summary = data.get("summary") or "Tyme CMS update"
+    steps_raw = data.get("steps", [])
+    if not isinstance(steps_raw, list):
+        raise ValueError('"steps" must be an array')
+
+    steps: List[Step] = []
+    for i, s in enumerate(steps_raw):
+        if not isinstance(s, dict):
+            raise ValueError(f"Step {i} must be an object, got: {type(s)}")
+        op = s.get("op") or ""
+        file = s.get("file") or ""
+        mode = s.get("mode", "overwrite")
+        content = s.get("content", "")
+        content_type = s.get("content_type", "text")
+
+        if not op or not file:
+            raise ValueError(f"Step {i} missing required fields op/file. Step={s}")
+
+        steps.append(Step(op=op, file=file, mode=mode, content=content, content_type=content_type))
+
+    return Plan(summary=str(summary), steps=steps).normalized()
+
+
+# ----------------------------
+# Apply Plan
+# ----------------------------
+
+def serialize_content(content: Any, content_type: str) -> str:
+    """
+    Convert content into a file-writeable string.
+    """
+    ct = (content_type or "text").lower().strip()
+    if ct == "json":
+        # If content is already a string but meant to be json, try to parse for pretty print.
+        if isinstance(content, str):
             try:
-                import yaml  # type: ignore
-                return yaml.safe_dump(content, sort_keys=False, allow_unicode=True)
+                obj = json.loads(content)
             except Exception:
-                # Fall back safely if yaml isn't available
-                return json.dumps(content, indent=2, ensure_ascii=False) + "\n"
+                # Accept raw string as-is, but ensure newline
+                return content.rstrip() + "\n"
+            return json.dumps(obj, indent=2, ensure_ascii=False) + "\n"
 
-        # Default for structured content going into non-json files:
-        # serialize to JSON string to avoid TypeError and preserve structure.
+        # If dict/list/etc, dump it
+        return json.dumps(content, indent=2, ensure_ascii=False) + "\n"
+
+    # Default: text
+    if isinstance(content, (dict, list)):
+        # Safety: never write dict/list directly as Python repr
+        # Convert to JSON string for durability.
         return json.dumps(content, indent=2, ensure_ascii=False) + "\n"
 
     return str(content)
 
 
-# -----------------------------
-# Universal File Writer (UFW)
-# -----------------------------
+def apply_step(step: Step) -> None:
+    op = step.op
+    rel = normalize_rel_path(step.file)
+    abs_path = resolve_repo_path(rel)
 
-def write_file(file_path: str, content: Any, mode: str) -> None:
-    """
-    Write content to a repo-relative path, ensuring directories exist.
-    mode: "overwrite" | "append"
-    """
-    file_path = normalize_repo_path(file_path)
-    ensure_parent_dir(file_path)
-
-    encoded = encode_content(content, file_path)
-
-    if isinstance(encoded, (bytes, bytearray)):
-        m = "ab" if mode == "append" else "wb"
-        with open(file_path, m) as f:
-            f.write(encoded)
+    if op == "mkdir":
+        abs_dir = abs_path
+        # mkdir can be passed a dir or a file path; we treat it as directory path
+        abs_dir.mkdir(parents=True, exist_ok=True)
+        if DEBUG:
+            log(f"OK mkdir: {abs_dir.relative_to(REPO_ROOT)}")
         return
-
-    # string path
-    m = "a" if mode == "append" else "w"
-    with open(file_path, m, encoding="utf-8") as f:
-        f.write(encoded)
-
-
-def delete_path(file_path: str) -> None:
-    file_path = normalize_repo_path(file_path)
-    p = Path(file_path)
-    if p.exists():
-        if p.is_dir():
-            # Conservative: refuse to delete directories from a plan (safer)
-            raise IsADirectoryError(f"Refusing to delete directory: {file_path}")
-        p.unlink()
-
-
-# -----------------------------
-# Plan execution
-# -----------------------------
-
-VALID_OPS = {"patch", "create", "replace", "delete"}
-VALID_MODES = {"append", "overwrite"}
-
-
-def apply_step(step: Dict[str, Any]) -> None:
-    op = step.get("op")
-    file_path = step.get("file")
-
-    if op not in VALID_OPS:
-        raise RuntimeError(f"Invalid op: {op}. Expected one of {sorted(VALID_OPS)}")
-
-    if not file_path or not isinstance(file_path, str):
-        raise RuntimeError(f"Invalid step (missing/invalid file): {step}")
-
-    # Normalize mode based on op
-    mode = step.get("mode", "overwrite")
-    if mode not in VALID_MODES:
-        mode = "overwrite"
 
     if op == "delete":
-        delete_path(file_path)
-        return
-
-    content = step.get("content", "")
-
-    if op == "patch":
-        # patch defaults to append unless explicitly overwrite
-        patch_mode = mode if mode in VALID_MODES else "append"
-        if patch_mode == "overwrite":
-            # "patch overwrite" is effectively replace
-            write_file(file_path, content, "overwrite")
+        if abs_path.exists():
+            if abs_path.is_dir():
+                # do not recursive-delete directories by default
+                raise IsADirectoryError(f"Refusing to delete directory '{rel}'. Delete files only.")
+            abs_path.unlink()
+            if DEBUG:
+                log(f"OK delete: {rel}")
         else:
-            write_file(file_path, content, "append")
+            if DEBUG:
+                log(f"SKIP delete (missing): {rel}")
         return
 
-    if op in ("create", "replace"):
-        write_file(file_path, content, "overwrite")
+    if op not in ("create", "replace", "patch"):
+        raise ValueError(f"Unknown op: {op}")
+
+    # file write ops
+    assert_not_dir_file_collision(abs_path)
+    ensure_parent_dir(abs_path)
+
+    mode = step.mode.lower().strip()
+    if mode not in ("overwrite", "append"):
+        mode = "overwrite"
+
+    write_mode = "a" if (op == "patch" and mode == "append") else "w"
+    payload = serialize_content(step.content, step.content_type)
+
+    with abs_path.open(write_mode, encoding="utf-8") as f:
+        f.write(payload)
+
+    if DEBUG:
+        log(f"OK {op}: {rel} (mode={mode}, content_type={step.content_type})")
+
+
+def run_plan(plan: Plan) -> None:
+    if not plan.steps:
+        log("No steps provided in plan, nothing to do.")
         return
 
-    raise RuntimeError(f"Unhandled op: {op}")
+    # Apply steps
+    for idx, step in enumerate(plan.steps):
+        try:
+            log(f"STEP {idx+1}/{len(plan.steps)}: {step.op} {step.file} (mode={step.mode}, type={step.content_type})")
+            apply_step(step)
+        except Exception as e:
+            raise RuntimeError(f"Failed applying step {idx+1}: {step}\nError: {e}") from e
 
-
-def run_plan(plan: Dict[str, Any]) -> None:
-    steps = plan.get("steps", [])
-    summary = plan.get("summary") or "Tyme CMS (NLC) update"
-
-    if not isinstance(steps, list) or not steps:
-        print("No steps provided in plan, nothing to do.")
-        return
-
-    # Apply all steps
-    for step in steps:
-        if not isinstance(step, dict):
-            raise RuntimeError(f"Invalid step type (expected dict): {step}")
-        print(f"STEP: {step.get('op')} {step.get('file')} (mode={step.get('mode','')})")
-        apply_step(step)
-
-    # Commit changes
+    # Git add & commit
     run("git add .")
-    run(f'git commit -m "{summary}" || echo "No changes to commit."')
+    # If no changes, don't hard-fail
+    run(f'git commit -m "{plan.summary}"', allow_fail=True)
 
 
-# -----------------------------
-# OpenAI + NLC
-# -----------------------------
-
-SYSTEM_PROMPT = """
-You are TYME CMS, an autonomous repository editor.
-
-You will receive a natural-language instruction about how to modify this Git
-repository. Convert the instruction into a JSON object with a field "steps".
-
-Each step is an object with:
-- "op": one of "patch", "create", "replace", "delete"
-- "file": the relative file path (e.g. "README.md" or "scrolls/xyz.md")
-- "content": string content to write or append (omit for delete)
-- "mode": "append" or "overwrite" (only for op = patch/replace; create defaults overwrite)
-
-Return a single JSON object:
-{
-  "summary": "...",
-  "steps": [ ... ]
-}
-
-Rules:
-- Output MUST be valid JSON (no markdown, no backticks).
-- "file" must be a relative path (no leading /).
-- Prefer creating files in existing folders; if a folder doesn't exist, you may still create it by using a file path with folders (the runner will mkdir parents).
-- If content is structured (e.g. JSON), you may emit "content" as a JSON object or array; the runtime will serialize it safely by file extension.
-"""
-
-def clean_raw_instruction(raw: str) -> str:
-    cleaned = (raw or "").strip()
-    print("RAW INPUT:", cleaned)
-
-    # Strip wrapping like tyme.something(...):
-    cleaned = re.sub(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*\(', '', cleaned)
-    cleaned = re.sub(r'\)\s*$', '', cleaned)
-
-    # Avoid quote issues in model instruction; keep punctuation otherwise.
-    cleaned = cleaned.replace("\u201c", '"').replace("\u201d", '"')
-    cleaned = cleaned.replace("\u2018", "'").replace("\u2019", "'")
-
-    # We do NOT delete quotes blindly anymore; that can destroy JSON/code content.
-    # Instead, we keep them. The model is instructed to return JSON only.
-    print("CLEANED NLC COMMAND:", cleaned)
-    return cleaned
-
-
-def extract_json(text: str) -> Dict[str, Any]:
-    """
-    Robust JSON extractor:
-    - If text is pure JSON, parse it.
-    - Else, find first {...} block and parse.
-    """
-    if not isinstance(text, str):
-        raise RuntimeError("Model output is not a string")
-
-    s = text.strip()
-
-    # Remove accidental code fences if a model ever ignores instructions
-    s = re.sub(r"^```[a-zA-Z]*\s*", "", s)
-    s = re.sub(r"\s*```$", "", s).strip()
-
-    # Try direct parse
-    try:
-        return json.loads(s)
-    except Exception:
-        pass
-
-    # Try to locate first JSON object
-    start = s.find("{")
-    end = s.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        candidate = s[start:end+1]
-        return json.loads(candidate)
-
-    raise RuntimeError(f"Model did not return valid JSON. Raw:\n{s}")
-
+# ----------------------------
+# Entry / NLC
+# ----------------------------
 
 def run_nlc(raw: str) -> None:
-    cleaned = clean_raw_instruction(raw)
+    instruction = clean_raw_instruction(raw)
+    if not instruction:
+        log("No command provided.")
+        return
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY is not set in environment. "
-            "Add it as a GitHub Actions secret and pass it into the job env."
-        )
+    log("RAW INPUT:", raw)
+    log("CLEANED INSTRUCTION:", instruction)
+    log("MODEL:", TYME_MODEL)
+    log("UTC:", utc_now_iso())
 
-    model = os.environ.get("TYME_MODEL", "gpt-4o-mini")
+    # 1) Ask model for plan
+    out = ask_model_for_plan(instruction)
+    if DEBUG:
+        log("MODEL RAW OUTPUT:")
+        log(out)
 
-    user_prompt = f"Instruction: {cleaned}"
+    # 2) Parse
+    try:
+        plan = parse_plan(out)
+    except Exception as e:
+        if not ALLOW_JSON_REPAIR:
+            raise
 
-    from openai import OpenAI  # type: ignore
-    client = OpenAI(api_key=api_key)
+        log("Initial JSON parse failed. Attempting repair...")
+        repaired = ask_model_for_plan(instruction="", repair_from=out)
+        if DEBUG:
+            log("MODEL REPAIRED OUTPUT:")
+            log(repaired)
+        plan = parse_plan(repaired)
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT.strip()},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.2,
-    )
-
-    content = response.choices[0].message.content or ""
-    print("MODEL RAW OUTPUT:")
-    print(content)
-
-    plan = extract_json(content)
-
-    if not isinstance(plan, dict):
-        raise RuntimeError(f"Plan must be a JSON object. Got: {type(plan)}")
-
+    # 3) Execute
     run_plan(plan)
 
 
-# -----------------------------
-# Legacy path (Python-style commands)
-# -----------------------------
-
 def run_legacy_python_style(raw: str) -> None:
     """
-    Optional: support commands like tyme.patch("README.md","...").
-    For now, forward to NLC.
+    Optional legacy stub: forward to NLC.
+    (You can expand this later to interpret tyme.patch(...) directly.)
     """
-    print("Legacy Python-like command path currently forwards to NLC.")
+    log("Legacy Python-style command path forwards to NLC.")
     run_nlc(raw)
 
 
-# -----------------------------
-# Entry point
-# -----------------------------
-
-if __name__ == "__main__":
-    raw = " ".join(sys.argv[1:]).strip()
+def main(argv: List[str]) -> int:
+    raw = " ".join(argv).strip()
     if not raw:
-        print("No command provided.")
-        sys.exit(0)
+        log("No command provided.")
+        return 0
 
     python_like = raw.startswith("tyme.") and "(" in raw and ")" in raw
     if python_like:
-        print("Detected Python-like command, using legacy handler.")
+        log("Detected Python-like command, using legacy handler.")
         run_legacy_python_style(raw)
     else:
-        print("Using Natural Language Command Engine (NLC).")
+        log("Using Natural Language Command Engine (NLC).")
         run_nlc(raw)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
