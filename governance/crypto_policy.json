@@ -1,0 +1,33 @@
+{
+  "policy_version": "0.1",
+  "status": "active",
+
+  "identity": {
+    "requires_stable_identity": true,
+    "identity_source": "repository-derived",
+    "may_not_self_modify": true
+  },
+
+  "integrity": {
+    "outputs_must_be_deterministic": true,
+    "outputs_must_be_hashable": true,
+    "history_must_not_be_rewritten": true
+  },
+
+  "memory": {
+    "append_only": true,
+    "events_must_be_timestamped": true
+  },
+
+  "execution": {
+    "block_unverifiable_actions": true,
+    "block_actions_without_policy_check": true,
+    "allow_no_op_with_explanation": true
+  },
+
+  "reflection": {
+    "always_emit_after_execution": true,
+    "emit_on_no_op": true,
+    "reflection_is_non_executing": true
+  }
+}
