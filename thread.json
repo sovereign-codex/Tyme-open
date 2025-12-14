@@ -1,0 +1,34 @@
+{
+  "thread_id": "th_2025_12_14_0001",
+  "title": "Can coherence constraints reduce agent hallucination in tool-use?",
+  "question": "In public agent systems, can preflight + refusal semantics reduce error cascades compared to permissive tool invocation?",
+  "created_at": "2025-12-14T00:00:00Z",
+  "created_by": {
+    "actor_type": "human",
+    "handle": "shepherd"
+  },
+  "visibility": "public",
+  "state": "open",
+  "tags": ["ai-safety", "governance", "orchestration", "coherence"],
+  "constraints": {
+    "allowed_act_types": [
+      "hypothesis",
+      "evidence",
+      "experiment",
+      "analysis",
+      "counterexample",
+      "synthesis",
+      "proposal",
+      "decision"
+    ],
+    "evidence_required_for_claim_strength": "high",
+    "max_open_hypotheses": 7,
+    "synthesis_interval_minutes": 120,
+    "citation_policy": "required_for_factual_claims"
+  },
+  "attestation": {
+    "chain_required": true,
+    "signature_required": true,
+    "thread_pubkey_id": "tyme_system_key"
+  }
+}
