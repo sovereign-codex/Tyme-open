@@ -1,3 +1,4 @@
+# backend/cms_bindings.py
 import os
 import sys
 import re
@@ -5,30 +6,14 @@ import json
 import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # =========================================================
 # TYME CMS — Sovereign UCE/UFW bindings
-# Universal Command Engine (UCE) + Universal Forge/Write (UFW)
-# =========================================================
-#
-# Goals:
-# - Robustly parse/execute structured "plans" (steps) returned by an LLM
-# - Provide a non-LLM Directive Layer for common actions (index refresh, forge activation, proposals)
-# - Be tolerant to model imperfections (op aliases, JSON wrapped output, non-string content)
-# - Guarantee filesystem safety (no escaping repo root)
-# - Guarantee git commit safety (set identity if missing; don't fail on "no changes")
-#
-# Expected step shape:
-# {
-#   "op": "create"|"replace"|"patch"|"delete"|"mkdir",
-#   "file": "relative/path.ext",
-#   "mode": "overwrite"|"append",      # for create/replace/patch
-#   "content": "string or jsonable",   # omitted for delete/mkdir
-# }
-#
 # =========================================================
 
+REPO_ROOT = Path(".").resolve()
+DRY_RUN = os.environ.get("TYME_DRY_RUN") == "1"
 
 # ----------------------------
 # Shell + Git helpers
@@ -36,6 +21,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 def sh(cmd: str, cwd: str = ".") -> str:
     print(f"$ {cmd}")
+    if DRY_RUN:
+        return ""
     result = subprocess.run(
         cmd,
         shell=True,
@@ -51,50 +38,38 @@ def sh(cmd: str, cwd: str = ".") -> str:
 
 
 def ensure_git_identity() -> None:
-    """
-    GitHub Actions runners sometimes have no identity configured.
-    Without this, commits fail with "Please tell me who you are."
-    """
-    try:
-        name = subprocess.run(
-            "git config user.name",
+    def get_cfg(key: str) -> str:
+        return subprocess.run(
+            f"git config {key}",
             shell=True,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         ).stdout.strip()
-        email = subprocess.run(
-            "git config user.email",
-            shell=True,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        ).stdout.strip()
-    except Exception:
-        name, email = "", ""
 
-    if not name:
+    if not get_cfg("user.name"):
         sh('git config user.name "TYME CMS"')
-    if not email:
+    if not get_cfg("user.email"):
         sh('git config user.email "tyme-cms@users.noreply.github.com"')
 
 
-def safe_commit(summary: str) -> None:
-    """
-    Add + commit, but do not fail if there are no changes.
-    """
+def safe_commit(summary: str, touched_files: List[str]) -> None:
     ensure_git_identity()
-    summary = (summary or "Tyme CMS update").strip()
-    summary = re.sub(r'["\n\r\t]', " ", summary)[:120]
 
-    sh("git add .")
-    # If nothing to commit, exit cleanly
+    summary = re.sub(r'["\n\r\t]', " ", (summary or "Tyme CMS update"))[:120]
+
+    if DRY_RUN:
+        print("[DRY-RUN] Commit skipped")
+        return
+
+    for f in touched_files:
+        sh(f'git add "{f}"')
+
     status = subprocess.run(
         "git status --porcelain",
         shell=True,
         text=True,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
     ).stdout.strip()
 
     if not status:
@@ -108,36 +83,24 @@ def safe_commit(summary: str) -> None:
 # Path safety
 # ----------------------------
 
-REPO_ROOT = Path(".").resolve()
-
 def normalize_rel_path(p: str) -> str:
-    """
-    Normalize a user/model-provided file path into a safe repo-relative path.
-    """
-    if p is None:
-        return ""
-    p = str(p).strip()
+    if not p:
+        raise ValueError("Empty path")
 
-    # Remove accidental quoting / leading ./ or /
-    p = p.strip().strip('"').strip("'")
-    p = p.lstrip().lstrip("./").lstrip("/")
+    p = str(p).strip().strip('"').strip("'")
+    p = p.lstrip("/").lstrip("./")
 
-    # Collapse repeated slashes
-    while "//" in p:
-        p = p.replace("//", "/")
-
-    # Prevent path traversal
     candidate = (REPO_ROOT / p).resolve()
     if not str(candidate).startswith(str(REPO_ROOT)):
         raise ValueError(f"Unsafe path (escapes repo): {p}")
 
-    return p
+    return p.replace("\\", "/")
 
 
 def ensure_parent_dirs(rel_path: str) -> None:
-    rel_path = normalize_rel_path(rel_path)
     parent = (REPO_ROOT / rel_path).parent
-    parent.mkdir(parents=True, exist_ok=True)
+    if not DRY_RUN:
+        parent.mkdir(parents=True, exist_ok=True)
 
 
 # ----------------------------
@@ -145,197 +108,85 @@ def ensure_parent_dirs(rel_path: str) -> None:
 # ----------------------------
 
 def normalize_content(value: Any) -> str:
-    """
-    The model may return dict/list/etc. Convert to deterministic string.
-    """
     if value is None:
         return ""
     if isinstance(value, str):
-        return value
-    # Dict/list/etc → pretty JSON
+        return value if value.endswith("\n") else value + "\n"
     try:
         return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     except Exception:
-        return str(value)
+        return str(value) + "\n"
 
 
 # ----------------------------
-# Robust JSON extraction for model output
+# Robust JSON extraction
 # ----------------------------
 
 def extract_first_json_object(text: str) -> Dict[str, Any]:
-    """
-    Model sometimes returns:
-      - commentary + JSON
-      - fenced blocks
-      - partial wrappers
-    We extract the first {...} that parses.
-    """
     if not text:
         raise ValueError("Empty model output")
 
-    # Try direct parse first
-    try:
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return obj
-    except Exception:
-        pass
+    cleaned = re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE)
 
-    # Remove code fences if present
-    cleaned = re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE).strip()
+    depth = 0
+    start = None
+    for i, ch in enumerate(cleaned):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0 and start is not None:
+                try:
+                    obj = json.loads(cleaned[start : i + 1])
+                    if isinstance(obj, dict):
+                        return obj
+                except Exception:
+                    pass
 
-    # Find balanced JSON object heuristically
-    # Scan for first '{' and attempt to parse progressively.
-    starts = [m.start() for m in re.finditer(r"\{", cleaned)]
-    for s in starts:
-        for e in range(len(cleaned), s + 1, -1):
-            if cleaned[e - 1] != "}":
-                continue
-            snippet = cleaned[s:e]
-            try:
-                obj = json.loads(snippet)
-                if isinstance(obj, dict):
-                    return obj
-            except Exception:
-                continue
-
-    raise ValueError(f"Could not extract valid JSON object from output:\n{text}")
+    raise ValueError("Could not extract valid JSON object")
 
 
-# =========================================================
-# Directive Layer (no LLM)
-# =========================================================
+# ----------------------------
+# Directive Layer
+# ----------------------------
 
 def now_utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def slugify(s: str) -> str:
-    s = s.lower().strip()
-    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
-    return s[:80] or "proposal"
-
-
-def scan_repo_index() -> Dict[str, Any]:
-    """
-    Builds a repository index (system registry) with arrays for directories/files/etc.
-    Stored at chronicle/system-index.json (per your conventions).
-    """
-    ignore_dirs = {
-        ".git", ".github", "node_modules", "__pycache__", ".venv", "venv",
-        ".next", "dist", "build", ".cache"
-    }
-
-    directories: List[str] = []
-    files: List[str] = []
-    scrolls: List[str] = []
-    forge_objects: List[str] = []
-    backend_modules: List[str] = []
-    frontend_assets: List[str] = []
-
-    for root, dirnames, filenames in os.walk(REPO_ROOT):
-        rel_root = os.path.relpath(root, REPO_ROOT).replace("\\", "/")
-        if rel_root == ".":
-            rel_root = ""
-
-        # prune ignored dirs
-        dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
-
-        # record dirs (repo-relative)
-        for d in dirnames:
-            p = f"{rel_root}/{d}".strip("/")
-            directories.append(p)
-
-        for fn in filenames:
-            if fn.startswith("."):
-                continue
-            rel_path = f"{rel_root}/{fn}".strip("/").replace("\\", "/")
-            files.append(rel_path)
-
-            if rel_path.startswith("scrolls/") and rel_path.endswith((".md", ".txt")):
-                scrolls.append(rel_path)
-            if rel_path.startswith("forge/"):
-                forge_objects.append(rel_path)
-            if rel_path.startswith("backend/") and rel_path.endswith(".py"):
-                backend_modules.append(rel_path)
-            if rel_path.startswith(("frontend/", "public/", "assets/")):
-                frontend_assets.append(rel_path)
-
-    index = {
-        "version": "1.0.0",
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "run_count": int(os.environ.get("TYME_RUN_COUNT", "0")) + 1,
-        "system_integrity": "ok",
-        "directories": sorted(set(directories)),
-        "files": sorted(set(files)),
-        "scrolls": sorted(set(scrolls)),
-        "forge_objects": sorted(set(forge_objects)),
-        "backend_modules": sorted(set(backend_modules)),
-        "frontend_assets": sorted(set(frontend_assets)),
-    }
-    return index
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:80] or "proposal"
 
 
 def directive_plan(raw: str) -> Optional[Dict[str, Any]]:
-    """
-    Convert known directives into an explicit plan with steps.
-    """
     r = raw.strip().lower()
 
-    # 1) System index refresh
-    if r in {"refresh system index", "system index refresh", "refresh index", "refresh system-index"}:
-        idx = scan_repo_index()
+    if r in {"refresh system index", "refresh index"}:
         return {
             "summary": "System index refresh",
-            "steps": [
-                {
-                    "op": "replace",
-                    "file": "chronicle/system-index.json",
-                    "mode": "overwrite",
-                    "content": idx,  # dict ok; will be normalized to json string
-                }
-            ],
+            "steps": [{
+                "op": "replace",
+                "file": "chronicle/system-index.json",
+                "mode": "overwrite",
+                "content": scan_repo_index(),
+            }],
         }
 
-    # 2) Forge activation
-    if r in {"perform forge activation", "forge activation", "activate forge", "perform forge"}:
-        ts = now_utc_stamp()
-        return {
-            "summary": "Forge activation",
-            "steps": [
-                {"op": "mkdir", "file": "forge"},
-                {
-                    "op": "replace",
-                    "file": "forge/heartbeat.md",
-                    "mode": "overwrite",
-                    "content": f"# Forge Heartbeat\n\n- status: online\n- updated_at: {ts}\n",
-                },
-                {
-                    "op": "patch",
-                    "file": "README.md",
-                    "mode": "append",
-                    "content": f"\n\n## Forge Online\n- last_heartbeat: {ts}\n",
-                },
-            ],
-        }
-
-    # 3) Proposal artifact
     if r.startswith("proposal:"):
         body = raw.split(":", 1)[1].strip()
         ts = now_utc_stamp()
-        title = body.split("::", 1)[0].strip() if "::" in body else body[:60]
-        slug = slugify(title)
-        content = body.split("::", 1)[1].strip() if "::" in body else body
+        title, _, content = body.partition("::")
         return {
-            "summary": f"Proposal: {title}",
+            "summary": f"Proposal: {title.strip()}",
             "steps": [
                 {"op": "mkdir", "file": "proposals"},
                 {
                     "op": "create",
-                    "file": f"proposals/{ts}_{slug}.md",
+                    "file": f"proposals/{ts}_{slugify(title)}.md",
                     "mode": "overwrite",
-                    "content": f"# {title}\n\nCreated: {ts}\n\n{content}\n",
+                    "content": f"# {title.strip()}\n\nCreated: {ts}\n\n{content.strip()}",
                 },
             ],
         }
@@ -343,182 +194,105 @@ def directive_plan(raw: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-# =========================================================
-# LLM Layer (NLC)
-# =========================================================
+# ----------------------------
+# Executor
+# ----------------------------
 
-SYSTEM_PROMPT = """
-You are TYME CMS, an autonomous repository editor.
-
-Return ONLY a JSON object with fields:
-- "summary": short commit message
-- "steps": array of step objects
-
-Each step object:
-- "op": one of "patch", "create", "replace", "delete", "mkdir"
-- "file": repo-relative path like "README.md" or "forge/heartbeat.md"
-- "mode": "append" or "overwrite" (required for patch/create/replace)
-- "content": text to write (omit for delete/mkdir)
-
-Rules:
-- For JSON files: set content to a STRING containing valid JSON (not an object).
-- Do NOT return backticks, markdown, or commentary.
-"""
-
-def clean_user_input(raw: str) -> str:
-    cleaned = raw.strip()
-
-    # If GitHub wrapped it like tyme.something(...), strip outer call
-    cleaned = re.sub(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*$begin:math:text$', "", cleaned)
-    cleaned = re.sub(r"$end:math:text$\s*$", "", cleaned)
-
-    return cleaned.strip()
-
-
-def run_nlc(raw: str) -> Dict[str, Any]:
-    """
-    LLM-backed plan generator.
-    """
-    cleaned = clean_user_input(raw)
-    print("RAW INPUT:", raw)
-    print("CLEANED NLC COMMAND:", cleaned)
-
-    from openai import OpenAI
-
-    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI")
-    if not api_key:
-        raise RuntimeError("Missing OPENAI_API_KEY (or OPENAI) in environment secrets")
-
-    model = os.environ.get("TYME_MODEL", "gpt-4o-mini")
-
-    client = OpenAI(api_key=api_key)
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Instruction: {cleaned}"},
-        ],
-        temperature=0.2,
-    )
-
-    text = resp.choices[0].message.content or ""
-    print("MODEL RAW OUTPUT:")
-    print(text)
-
-    plan = extract_first_json_object(text)
-    return plan
-
-
-# =========================================================
-# Executor (UFW)
-# =========================================================
-
+ALLOWED_OPS = {"create", "replace", "patch", "delete", "mkdir"}
 OP_ALIASES = {
-    # tolerate common drift
     "overwrite": "replace",
     "append": "patch",
     "write": "replace",
     "update": "patch",
     "add": "create",
     "remove": "delete",
-    "activate": "create",   # prevents your "Unknown operation: activate" crash
 }
 
 def canonical_op(op: str) -> str:
-    op = (op or "").strip().lower()
-    op = OP_ALIASES.get(op, op)
-    return op
+    return OP_ALIASES.get((op or "").lower(), (op or "").lower())
 
 
-def apply_step(step: Dict[str, Any]) -> None:
-    op = canonical_op(step.get("op") or step.get("mode"))
-    file_path = normalize_rel_path(step.get("file", ""))
-    mode = (step.get("mode") or "overwrite").strip().lower()
+def validate_step(step: Dict[str, Any]) -> None:
+    if "op" not in step or "file" not in step:
+        raise ValueError(f"Invalid step: {step}")
+    if canonical_op(step["op"]) not in ALLOWED_OPS:
+        raise ValueError(f"Unknown operation: {step['op']}")
+
+
+def apply_step(step: Dict[str, Any], touched: List[str]) -> None:
+    validate_step(step)
+
+    op = canonical_op(step["op"])
+    path = normalize_rel_path(step["file"])
     content = normalize_content(step.get("content"))
 
-    if not op or not file_path:
-        raise ValueError(f"Invalid step (missing op or file): {step}")
+    print(f"STEP: {op} {path}")
 
-    print(f"STEP: {op} {file_path} (mode={mode})")
-
-    # mkdir: file points to directory
     if op == "mkdir":
-        p = (REPO_ROOT / file_path)
-        p.mkdir(parents=True, exist_ok=True)
+        if not DRY_RUN:
+            (REPO_ROOT / path).mkdir(parents=True, exist_ok=True)
         return
 
-    # delete
+    full = REPO_ROOT / path
+
     if op == "delete":
-        p = (REPO_ROOT / file_path)
-        if p.exists():
-            p.unlink()
+        if full.exists() and full.is_file():
+            if not DRY_RUN:
+                full.unlink()
+            touched.append(path)
         return
 
-    # create/replace/patch all ensure dirs
-    ensure_parent_dirs(file_path)
-    p = (REPO_ROOT / file_path)
+    ensure_parent_dirs(path)
 
-    # create: fail if exists? (we'll be tolerant and overwrite if asked)
-    if op == "create":
-        write_mode = "a" if mode == "append" else "w"
-        with p.open(write_mode, encoding="utf-8") as f:
+    mode = "a" if op == "patch" else "w"
+    if not DRY_RUN:
+        with full.open(mode, encoding="utf-8") as f:
             f.write(content)
-        return
-
-    # replace: overwrite
-    if op == "replace":
-        with p.open("w", encoding="utf-8") as f:
-            f.write(content)
-        return
-
-    # patch: append (default) unless overwrite explicitly requested
-    if op == "patch":
-        write_mode = "a" if mode != "overwrite" else "w"
-        with p.open(write_mode, encoding="utf-8") as f:
-            f.write(content)
-        return
-
-    raise ValueError(f"Unknown operation: {op}")
+    touched.append(path)
 
 
 def run_plan(plan: Dict[str, Any]) -> None:
     steps = plan.get("steps") or []
-    summary = plan.get("summary") or "Tyme CMS update"
+    summary = plan.get("summary", "Tyme CMS update")
 
-    if not isinstance(steps, list) or not steps:
-        print("No steps provided in plan; nothing to do.")
-        return
-
-    # Apply all steps
+    touched: List[str] = []
     for step in steps:
-        if not isinstance(step, dict):
-            raise ValueError(f"Step must be an object/dict: {step}")
-        apply_step(step)
+        apply_step(step, touched)
 
-    # Commit
-    safe_commit(str(summary))
+    safe_commit(summary, touched)
 
 
-# =========================================================
-# Main dispatcher
-# =========================================================
+# ----------------------------
+# Main
+# ----------------------------
+
+def clean_user_input(raw: str) -> str:
+    raw = raw.strip()
+    m = re.match(r"^[a-zA-Z_]\w*$begin:math:text$(.*)$end:math:text$$", raw)
+    return m.group(1).strip() if m else raw
+
 
 def main() -> None:
     raw = " ".join(sys.argv[1:]).strip()
     if not raw:
         print("No command provided.")
-        sys.exit(0)
+        return
 
-    # First: directive layer (deterministic, no LLM)
     dplan = directive_plan(raw)
-    if dplan is not None:
-        print("Directive Layer engaged.")
+    if dplan:
         run_plan(dplan)
         return
 
-    # Otherwise: LLM-backed NLC
-    print("Using Natural Language Command Engine (NLC).")
-    plan = run_nlc(raw)
+    from openai import OpenAI
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    resp = client.chat.completions.create(
+        model=os.environ.get("TYME_MODEL", "gpt-4o-mini"),
+        messages=[{"role": "system", "content": SYSTEM_PROMPT},
+                  {"role": "user", "content": clean_user_input(raw)}],
+        temperature=0.2,
+    )
+
+    plan = extract_first_json_object(resp.choices[0].message.content or "")
     run_plan(plan)
 
 
