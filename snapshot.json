@@ -1,0 +1,25 @@
+{
+  "thread_id": "th_2025_12_14_0001",
+  "generated_at": "2025-12-14T00:00:00Z",
+  "state": "open",
+  "current_hypotheses": [
+    {
+      "hypothesis_id": "h1",
+      "statement": "Preflight + refusal semantics reduce tool-induced corruption events.",
+      "status": "active",
+      "supporting_evidence_act_ids": ["act_000003", "act_000007"],
+      "counterevidence_act_ids": ["act_000012"]
+    }
+  ],
+  "open_questions": [
+    "What recovery policy prevents stagnation after refusal?"
+  ],
+  "next_experiments": [
+    {
+      "title": "Refusal Recovery Benchmark",
+      "description": "Measure successful completion rate with auto-recovery prompts vs no recovery.",
+      "act_ids": ["act_000010"]
+    }
+  ],
+  "latest_synthesis_act_id": "act_000011"
+}
