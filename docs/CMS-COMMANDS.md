@@ -181,3 +181,70 @@ All new CMS commands MUST:
 	4.	Declare orchestration cycle bindings
 	5.	Use deterministic syntax
 	6.	Have both Explanatory + Shorthand forms
+
+# CMS Command System
+
+The CMS (Command Management System) is the authoritative execution layer for
+Tyme and all AVOT-based agents. Every CMS command is treated as a **binding
+execution contract**, not a suggestion.
+
+Ambiguous intent is explicitly rejected.
+
+---
+
+## 1. Purpose of the CMS
+
+The CMS exists to:
+- Execute file mutations safely and intentionally
+- Enable autonomous agents (AVOTs) to act without destructive ambiguity
+- Preserve Codex integrity under human and non-human execution
+
+The CMS does not infer intent.  
+**Intent must be explicit.**
+
+---
+
+## 2. Core Execution Principle
+
+> **Every CMS command is a contract.**
+
+A command either:
+- Executes exactly as defined, or
+- Is refused without partial execution
+
+There is no implicit fallback behavior.
+
+---
+
+## 3. Command Contract Law (Authoritative)
+
+### The Non-Negotiable Rule
+
+**`op` defines intent.  
+No other field may override or conflict with it.**
+
+As of the current CMS interpreter:
+
+- `op` is sovereign
+- Mixed semantic intent is forbidden
+- Conflicting commands are refused with exit code `1`
+
+This is intentional system behavior.
+
+---
+
+## 4. Valid Operations
+
+Each command MUST declare exactly one operation.
+
+### 4.1 `create` — Birth
+
+Creates a new file.  
+Fails if the file already exists.
+
+```json
+{
+  "op": "create",
+  "file": "docs/new_scroll.md",
+  "content": "..."
+}
