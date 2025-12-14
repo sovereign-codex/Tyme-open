@@ -248,3 +248,6 @@ Fails if the file already exists.
   "file": "docs/new_scroll.md",
   "content": "..."
 }
+
+> See also: docs/lessons/LESSON-8-CMS-EXECUTION-LAW.md  
+> This lesson defines the execution law enforced by the CMS.
