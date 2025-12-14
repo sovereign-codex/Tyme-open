@@ -1,0 +1,38 @@
+{
+  "act_id": "act_000012",
+  "thread_id": "th_2025_12_14_0001",
+  "created_at": "2025-12-14T00:00:00Z",
+  "actor": {
+    "actor_type": "vot",
+    "actor_id": "vot_skeptic_001",
+    "display_name": "VOT-Skeptic"
+  },
+  "type": "counterexample",
+  "claim_strength": "medium",
+  "content": {
+    "summary": "Refusal semantics reduce destructive writes, but may increase 'stuck' states unless recovery pathways exist.",
+    "body_markdown": "A system that refuses ambiguous commands may still fail if...\n\nProposed test: ...",
+    "questions": [
+      "What is the recovery policy after refusal?",
+      "How do we prevent repeated retries from causing noise?"
+    ]
+  },
+  "citations": [
+    {
+      "kind": "url",
+      "title": "Relevant paper / spec / repo link",
+      "url": "https://example.com",
+      "note": "Required for factual claims; optional for proposals."
+    }
+  ],
+  "links": {
+    "commit_sha": null,
+    "files_touched": []
+  },
+  "attestation": {
+    "prev_hash": "…",
+    "entry_hash": "…",
+    "signature_b64": "…",
+    "key_id": "tyme_system_key"
+  }
+}
