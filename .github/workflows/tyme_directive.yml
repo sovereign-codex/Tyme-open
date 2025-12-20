@@ -17,26 +17,34 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Parse Directive Envelope
-        id: parse
-        shell: bash
-        run: |
-          echo "Parsing directive payload..."
+  id: parse
+  shell: bash
+  run: |
+    echo "Parsing directive payload..."
 
-          PAYLOAD="${{ github.event.inputs.directive_payload }}"
+    PAYLOAD="${{ github.event.inputs.directive_payload }}"
 
-          DIRECTIVE=$(echo "$PAYLOAD" | sed -n 's/^DIRECTIVE:[[:space:]]*//p' | head -n1)
-          TARGET=$(echo "$PAYLOAD" | sed -n 's/^TARGET:[[:space:]]*//p' | head -n1)
+    echo "Raw payload:"
+    echo "----------------"
+    echo "$PAYLOAD"
+    echo "----------------"
 
-          if [[ -z "$DIRECTIVE" || -z "$TARGET" ]]; then
-            echo "❌ Missing DIRECTIVE or TARGET"
-            exit 1
-          fi
+    # Normalize payload into single line for token extraction
+    NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
 
-          echo "directive=$DIRECTIVE" >> $GITHUB_OUTPUT
-          echo "target=$TARGET" >> $GITHUB_OUTPUT
+    DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^ ]*\).*/\1/p')
+    TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^ ]*\).*/\1/p')
 
-          echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
-          echo "✅ Parsed TARGET=$TARGET"
+    if [[ -z "$DIRECTIVE" || -z "$TARGET" ]]; then
+      echo "❌ Missing DIRECTIVE or TARGET"
+      exit 1
+    fi
+
+    echo "directive=$DIRECTIVE" >> $GITHUB_OUTPUT
+    echo "target=$TARGET" >> $GITHUB_OUTPUT
+
+    echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
+    echo "✅ Parsed TARGET=$TARGET"
 
       - name: Route Directive
         run: |
