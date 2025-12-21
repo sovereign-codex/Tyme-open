@@ -98,3 +98,132 @@ jobs:
           esac
 
           echo "✅ Directive routing completed safely."
+
+      - name: Execute STRUCTURE Directive
+        if: steps.parse.outputs.directive == 'STRUCTURE'
+        shell: bash
+        run: |
+          set -e
+
+          echo "🧱 Executing STRUCTURE directive (genesis build)"
+
+          mkdir -p _genesis
+
+          ########################################
+          # tyme-core
+          ########################################
+          mkdir -p _genesis/tyme-core/{policy,ledger,coherence,docs}
+
+          cat > _genesis/tyme-core/README.md << 'EOF'
+# 🜂 tyme-core  
+### Sovereign Coherence Kernel
+
+> “TYME is not a model. TYME is a seat.”
+
+## Purpose
+
+`tyme-core` is the constitutional kernel of the TYME ecosystem.
+
+It defines:
+- when action is allowed
+- who may speak
+- how truth is anchored
+- how history is preserved
+- how authority is proven and rotated
+
+Everything else depends on this repository.  
+Nothing in this repository depends on anything else.
+
+## What Lives Here
+
+- Coherence Engine
+- Audit Ledger
+- Cryptographic identity & signing
+- TYME Expansion Charter
+- Policy schemas
+- AVOT authority definitions
+
+## Design Principles
+
+- Coherence before capability  
+- Authority before execution  
+- Auditability before speed  
+- Integrity before scale  
+EOF
+
+          ########################################
+          # codex-net
+          ########################################
+          mkdir -p _genesis/codex-net/{definitions,claims,provenance,docs}
+
+          cat > _genesis/codex-net/README.md << 'EOF'
+# 🌱 codex-net  
+### Sovereign Knowledge & Memory Fabric
+
+> “Truth is not what is said. Truth is what survives scrutiny.”
+
+## Purpose
+
+`codex-net` is the seated knowledge substrate of TYME.
+
+It stores:
+- canonical definitions
+- claims with provenance
+- confidence levels
+- jurisdictional context
+- licensing and lineage
+
+This is governed memory, not a wiki.
+EOF
+
+          ########################################
+          # avot-engine
+          ########################################
+          mkdir -p _genesis/avot-engine/{avots,tools,runtime,docs}
+
+          cat > _genesis/avot-engine/README.md << 'EOF'
+# 🧠 avot-engine  
+### Autonomous Voices of Thought
+
+> “Intelligence is expression. Wisdom is restraint.”
+
+## Purpose
+
+`avot-engine` contains the living intelligence organs of TYME.
+
+AVOTs are bounded agents that reason, synthesize, and propose —
+but do not define authority or truth.
+
+All execution is gated by `tyme-core`.
+EOF
+
+          ########################################
+          # tyme-interface
+          ########################################
+          mkdir -p _genesis/tyme-interface/{ui,api,explorer,docs}
+
+          cat > _genesis/tyme-interface/README.md << 'EOF'
+# 🌐 tyme-interface  
+### Human & World Contact Layer
+
+> “Visibility without authority. Transparency without coercion.”
+
+## Purpose
+
+`tyme-interface` is how humans and systems observe TYME.
+
+It provides dashboards, explorers, and verification tools —
+but never executes authority.
+EOF
+
+          ########################################
+          # Zip everything
+          ########################################
+          cd _genesis
+
+          zip -r tyme-core-genesis.zip tyme-core
+          zip -r codex-net-genesis.zip codex-net
+          zip -r avot-engine-genesis.zip avot-engine
+          zip -r tyme-interface-genesis.zip tyme-interface
+
+          echo "✅ Genesis structures created and zipped"
