@@ -33,7 +33,9 @@ jobs:
 
           echo "Parsing directive payload..."
           PAYLOAD="${{ github.event.inputs.directive_payload }}"
-
+          SIGN)
+           echo "🔏 SIGN directive acknowledged"
+          ;;
           NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
 
           DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^[:space:]]*\).*/\1/p')
@@ -88,14 +90,39 @@ jobs:
 
           cd _genesis
           zip -r structure_${{ steps.parse.outputs.target }}.zip structure
+          # --------------------------------------------
+          # SIGN STRUCTURE Artifact
+          # --------------------------------------------
+          - name: Sign STRUCTURE Artifact
+        if: steps.parse.outputs.directive == 'STRUCTURE'
+        shell: bash
+        run: |
+    set -e
 
+    echo "🔏 Signing STRUCTURE artifact"
+
+    ARTIFACT="_genesis/structure_${{ steps.parse.outputs.target }}.zip"
+    SIG_DIR="_genesis/signatures"
+    mkdir -p "$SIG_DIR"
+
+    HASH=$(sha256sum "$ARTIFACT" | awk '{print $1}')
+
+    cat > "$SIG_DIR/structure_${{ steps.parse.outputs.target }}.sig.json" <<EOF
+    {
+      "type": "structure",
+      "target": "${{ steps.parse.outputs.target }}",
+      "algorithm": "sha256",
+      "hash": "$HASH",
+      "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    }
+    EOF
       # --------------------------------------------------
       # MANIFEST Directive
       # --------------------------------------------------
       - name: Execute MANIFEST
-        if: steps.parse.outputs.directive == 'MANIFEST'
-        shell: bash
-        run: |
+    if: steps.parse.outputs.directive == 'MANIFEST'
+    shell: bash
+    run: |
           set -e
 
           echo "🧾 Executing MANIFEST directive"
@@ -118,8 +145,33 @@ jobs:
               "human-verifiable output"
             ]
           }
-          EOF
+  EOF
+          # --------------------------------------------
+          # SIGN MANIFEST Artifact
+          # --------------------------------------------
+          - name: Sign MANIFEST Artifact
+        if: steps.parse.outputs.directive == 'MANIFEST'
+        shell: bash
+        run: |
+    set -e
 
+    echo "🔏 Signing MANIFEST artifact"
+
+    ARTIFACT="_genesis/manifest/manifest.json"
+    SIG_DIR="_genesis/signatures"
+    mkdir -p "$SIG_DIR"
+
+    HASH=$(sha256sum "$ARTIFACT" | awk '{print $1}')
+
+    cat > "$SIG_DIR/manifest_${{ steps.parse.outputs.target }}.sig.json" <<EOF
+    {
+      "type": "manifest",
+      "target": "${{ steps.parse.outputs.target }}",
+      "algorithm": "sha256",
+      "hash": "$HASH",
+      "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    }
+    EOF
       # --------------------------------------------------
       # Upload STRUCTURE Artifact
       # --------------------------------------------------
@@ -139,3 +191,14 @@ jobs:
         with:
           name: tyme-manifest-${{ steps.parse.outputs.target }}
           path: _genesis/manifest/manifest.json
+       
+       # --------------------------------------------
+       # Upload SIGNATURE Artifacts
+       # --------------------------------------------
+       - name: Upload SIGNATURE Artifacts
+       if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'MANIFEST'
+       uses: actions/upload-artifact@v4
+       with:
+         name: tyme-signatures-${{ steps.parse.outputs.target }}
+         path: _genesis/signatures/*.sig.json
+         if-no-files-found: warn
