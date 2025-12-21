@@ -12,69 +12,89 @@ jobs:
   parse-and-route:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Parse Directive Envelope
-  id: parse
-  shell: bash
-  run: |
-    echo "Parsing directive payload..."
-
-    PAYLOAD="${{ github.event.inputs.directive_payload }}"
-
-    echo "Raw payload:"
-    echo "----------------"
-    echo "$PAYLOAD"
-    echo "----------------"
-
-    # Normalize payload into single line for token extraction
-    NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
-
-    DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^ ]*\).*/\1/p')
-    TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^ ]*\).*/\1/p')
-
-    if [[ -z "$DIRECTIVE" || -z "$TARGET" ]]; then
-      echo "❌ Missing DIRECTIVE or TARGET"
-      exit 1
-    fi
-
-    echo "directive=$DIRECTIVE" >> $GITHUB_OUTPUT
-    echo "target=$TARGET" >> $GITHUB_OUTPUT
-
-    echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
-    echo "✅ Parsed TARGET=$TARGET"
-
-        - name: Route Directive
+        id: parse
+        shell: bash
         run: |
-          echo "Routing directive..."
+          set -e
 
-          case "${{ steps.parse.outputs.directive }}" in
+          echo "🔍 Parsing directive payload..."
+
+          PAYLOAD="${{ github.event.inputs.directive_payload }}"
+
+          echo "Raw payload:"
+          echo "-------------------------"
+          echo "$PAYLOAD"
+          echo "-------------------------"
+
+          # Normalize payload into a single line to avoid GitHub UI newline issues
+          NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
+
+          # Extract DIRECTIVE and TARGET regardless of position
+          DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^ ]*\).*/\1/p')
+          TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^ ]*\).*/\1/p')
+
+          if [[ -z "$DIRECTIVE" || -z "$TARGET" ]]; then
+            echo "❌ Missing DIRECTIVE or TARGET"
+            exit 1
+          fi
+
+          echo "directive=$DIRECTIVE" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
+          echo "✅ Parsed TARGET=$TARGET"
+
+      - name: Route Directive
+        shell: bash
+        run: |
+          set -e
+
+          DIRECTIVE="${{ steps.parse.outputs.directive }}"
+          TARGET="${{ steps.parse.outputs.target }}"
+
+          echo "🧭 Routing directive..."
+          echo "Directive: $DIRECTIVE"
+          echo "Target: $TARGET"
+
+          case "$DIRECTIVE" in
 
             STRUCTURE)
               echo "🧱 STRUCTURE directive received"
-              # call structure script or generator
+              echo "Stub only — no filesystem changes yet."
               ;;
-            
+
             TRANSFER)
               echo "📦 TRANSFER directive received"
+              echo "Stub only — no transfer executed."
               ;;
-            
+
             ACTIVATE)
               echo "⚡ ACTIVATE directive received"
+              echo "Stub only — no workflows triggered."
               ;;
-            
+
             PROPAGATE)
               echo "🔁 PROPAGATE directive received"
+              echo "Stub only — no propagation executed."
               ;;
-            
+
             SEAL)
               echo "🔒 SEAL directive received"
+              echo "Stub only — no sealing performed."
               ;;
-            
+
             *)
-              echo "❌ Unknown DIRECTIVE"
+              echo "❌ Unknown DIRECTIVE: $DIRECTIVE"
               exit 1
               ;;
           esac
+
+          echo "✅ Directive routing completed safely."
