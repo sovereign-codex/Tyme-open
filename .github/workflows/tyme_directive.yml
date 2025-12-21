@@ -227,3 +227,9 @@ EOF
           zip -r tyme-interface-genesis.zip tyme-interface
 
           echo "✅ Genesis structures created and zipped"
+
+      - name: Upload Genesis Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tyme-genesis-archives
+          path: _genesis/*.zip
