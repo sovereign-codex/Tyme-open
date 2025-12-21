@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-    - name: Parse Directive Envelope
+      - name: Parse Directive Envelope
   id: parse
   shell: bash
   run: |
@@ -46,7 +46,7 @@ jobs:
     echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
     echo "✅ Parsed TARGET=$TARGET"
 
-    - name: Route Directive
+        - name: Route Directive
         run: |
           echo "Routing directive..."
 
