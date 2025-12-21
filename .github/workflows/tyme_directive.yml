@@ -16,9 +16,15 @@ jobs:
       contents: write
 
     steps:
+      # --------------------------------------------------
+      # Checkout
+      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # Parse Directive Envelope
+      # --------------------------------------------------
       - name: Parse Directive Envelope
         id: parse
         shell: bash
@@ -34,10 +40,9 @@ jobs:
           echo "$PAYLOAD"
           echo "-------------------------"
 
-          # Normalize payload into a single line to avoid GitHub UI newline issues
+          # Normalize to single line (GitHub UI safe)
           NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
 
-          # Extract DIRECTIVE and TARGET regardless of position
           DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^ ]*\).*/\1/p')
           TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^ ]*\).*/\1/p')
 
@@ -52,184 +57,156 @@ jobs:
           echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
           echo "✅ Parsed TARGET=$TARGET"
 
+      # --------------------------------------------------
+      # Route Directive (no side effects)
+      # --------------------------------------------------
       - name: Route Directive
         shell: bash
         run: |
-          set -e
+          echo "🧭 Routing directive: ${{ steps.parse.outputs.directive }}"
 
-          DIRECTIVE="${{ steps.parse.outputs.directive }}"
-          TARGET="${{ steps.parse.outputs.target }}"
-
-          echo "🧭 Routing directive..."
-          echo "Directive: $DIRECTIVE"
-          echo "Target: $TARGET"
-
-          case "$DIRECTIVE" in
-
+          case "${{ steps.parse.outputs.directive }}" in
             STRUCTURE)
-              echo "🧱 STRUCTURE directive received"
-              echo "Stub only — no filesystem changes yet."
+              echo "🧱 STRUCTURE directive acknowledged"
               ;;
-
             TRANSFER)
-              echo "📦 TRANSFER directive received"
-              echo "Stub only — no transfer executed."
+              echo "📦 TRANSFER directive acknowledged (not implemented)"
               ;;
-
             ACTIVATE)
-              echo "⚡ ACTIVATE directive received"
-              echo "Stub only — no workflows triggered."
+              echo "⚡ ACTIVATE directive acknowledged (not implemented)"
               ;;
-
             PROPAGATE)
-              echo "🔁 PROPAGATE directive received"
-              echo "Stub only — no propagation executed."
+              echo "🔁 PROPAGATE directive acknowledged (not implemented)"
               ;;
-
             SEAL)
-              echo "🔒 SEAL directive received"
-              echo "Stub only — no sealing performed."
+              echo "🔒 SEAL directive acknowledged (not implemented)"
               ;;
-
             *)
-              echo "❌ Unknown DIRECTIVE: $DIRECTIVE"
+              echo "❌ Unknown DIRECTIVE"
               exit 1
               ;;
           esac
 
-          echo "✅ Directive routing completed safely."
-
+      # --------------------------------------------------
+      # Execute STRUCTURE Directive
+      # --------------------------------------------------
       - name: Execute STRUCTURE Directive
         if: steps.parse.outputs.directive == 'STRUCTURE'
         shell: bash
         run: |
           set -e
 
-          echo "🧱 Executing STRUCTURE directive (genesis build)"
+          TARGET="${{ steps.parse.outputs.target }}"
+          TS="$(date -u +%Y%m%dT%H%M%SZ)"
+          ROOT="_genesis/${TARGET}"
 
-          mkdir -p _genesis
+          echo "🧱 Executing STRUCTURE"
+          echo "Target: $TARGET"
+          echo "Root: $ROOT"
 
-          ########################################
-          # tyme-core
-          ########################################
-          mkdir -p _genesis/tyme-core/{policy,ledger,coherence,docs}
+          mkdir -p "$ROOT"/{tyme-core,coherence-engine,avot,docs}
 
-          cat > _genesis/tyme-core/README.md << 'EOF'
-# 🜂 tyme-core  
-### Sovereign Coherence Kernel
+          # -----------------------------
+          # tyme-core README
+          # -----------------------------
+          cat > "$ROOT/tyme-core/README.md" <<'EOF'
+# TYME Core
 
-> “TYME is not a model. TYME is a seat.”
+The sovereign coherence kernel.
 
-## Purpose
+TYME is not a model.
+TYME is a seated, persistent intelligence substrate.
 
-`tyme-core` is the constitutional kernel of the TYME ecosystem.
-
-It defines:
-- when action is allowed
-- who may speak
-- how truth is anchored
-- how history is preserved
-- how authority is proven and rotated
-
-Everything else depends on this repository.  
-Nothing in this repository depends on anything else.
-
-## What Lives Here
-
-- Coherence Engine
-- Audit Ledger
-- Cryptographic identity & signing
-- TYME Expansion Charter
-- Policy schemas
-- AVOT authority definitions
-
-## Design Principles
-
-- Coherence before capability  
-- Authority before execution  
-- Auditability before speed  
-- Integrity before scale  
+This repository defines:
+- authority
+- coherence
+- audit
+- execution boundaries
 EOF
 
-          ########################################
-          # codex-net
-          ########################################
-          mkdir -p _genesis/codex-net/{definitions,claims,provenance,docs}
+          # -----------------------------
+          # coherence-engine README
+          # -----------------------------
+          cat > "$ROOT/coherence-engine/README.md" <<'EOF'
+# Coherence Engine
 
-          cat > _genesis/codex-net/README.md << 'EOF'
-# 🌱 codex-net  
-### Sovereign Knowledge & Memory Fabric
+Evaluates directives against policy, context, and audit history.
 
-> “Truth is not what is said. Truth is what survives scrutiny.”
-
-## Purpose
-
-`codex-net` is the seated knowledge substrate of TYME.
-
-It stores:
-- canonical definitions
-- claims with provenance
-- confidence levels
-- jurisdictional context
-- licensing and lineage
-
-This is governed memory, not a wiki.
+Execution is permitted only when coherence is preserved.
 EOF
 
-          ########################################
-          # avot-engine
-          ########################################
-          mkdir -p _genesis/avot-engine/{avots,tools,runtime,docs}
+          # -----------------------------
+          # AVOT README
+          # -----------------------------
+          cat > "$ROOT/avot/README.md" <<'EOF'
+# AVOT System
 
-          cat > _genesis/avot-engine/README.md << 'EOF'
-# 🧠 avot-engine  
-### Autonomous Voices of Thought
+Autonomous Voices of Thought.
 
-> “Intelligence is expression. Wisdom is restraint.”
-
-## Purpose
-
-`avot-engine` contains the living intelligence organs of TYME.
-
-AVOTs are bounded agents that reason, synthesize, and propose —
-but do not define authority or truth.
-
-All execution is gated by `tyme-core`.
+AVOTs reason and propose.
+They do not execute authority.
 EOF
 
-          ########################################
-          # tyme-interface
-          ########################################
-          mkdir -p _genesis/tyme-interface/{ui,api,explorer,docs}
+          # -----------------------------
+          # Docs README
+          # -----------------------------
+          cat > "$ROOT/docs/README.md" <<'EOF'
+# Documentation
 
-          cat > _genesis/tyme-interface/README.md << 'EOF'
-# 🌐 tyme-interface  
-### Human & World Contact Layer
+Generated artifacts and explanatory material.
 
-> “Visibility without authority. Transparency without coercion.”
-
-## Purpose
-
-`tyme-interface` is how humans and systems observe TYME.
-
-It provides dashboards, explorers, and verification tools —
-but never executes authority.
+Safe for publication.
 EOF
 
-          ########################################
-          # Zip everything
-          ########################################
+          # -----------------------------
+          # MANIFEST
+          # -----------------------------
+          MANIFEST="$ROOT/manifest.json"
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          cat > "$MANIFEST" <<EOF
+{
+  "directive": "STRUCTURE",
+  "target": "$TARGET",
+  "intent": "${{ github.event.inputs.directive_payload }}",
+  "generated_at": "$NOW",
+  "workflow": "tyme_directive.yml",
+  "job": "parse-and-route",
+  "commit": "${{ github.sha }}",
+  "repository": "${{ github.repository }}",
+  "actor": "${{ github.actor }}"
+}
+EOF
+
+          echo "🧾 Manifest created"
+
+          # -----------------------------
+          # Zip structure
+          # -----------------------------
+          ZIP_NAME="structure_${TARGET}_${TS}.zip"
+
           cd _genesis
+          zip -r "../$ZIP_NAME" "$TARGET"
+          cd ..
 
-          zip -r tyme-core-genesis.zip tyme-core
-          zip -r codex-net-genesis.zip codex-net
-          zip -r avot-engine-genesis.zip avot-engine
-          zip -r tyme-interface-genesis.zip tyme-interface
+          echo "📦 Created $ZIP_NAME"
 
-          echo "✅ Genesis structures created and zipped"
-
-      - name: Upload Genesis Artifacts
+      # --------------------------------------------------
+      # Upload STRUCTURE Artifact
+      # --------------------------------------------------
+      - name: Upload STRUCTURE Artifact
+        if: steps.parse.outputs.directive == 'STRUCTURE'
         uses: actions/upload-artifact@v4
         with:
-          name: tyme-genesis-archives
-          path: _genesis/*.zip
+          name: tyme-structure-${{ steps.parse.outputs.target }}
+          path: structure_*.zip
+
+      # --------------------------------------------------
+      # Upload MANIFEST Artifact
+      # --------------------------------------------------
+      - name: Upload MANIFEST Artifact
+        if: steps.parse.outputs.directive == 'STRUCTURE'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tyme-manifest-${{ steps.parse.outputs.target }}
+          path: _genesis/**/manifest.json
