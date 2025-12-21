@@ -16,15 +16,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------------------------------
+      # --------------------------
       # Checkout
-      # --------------------------------------------------
+      # --------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
+      # --------------------------
       # Parse Directive Envelope
-      # --------------------------------------------------
+      # --------------------------
       - name: Parse Directive Envelope
         id: parse
         shell: bash
@@ -49,15 +49,14 @@ jobs:
           echo "✅ DIRECTIVE=$DIRECTIVE"
           echo "✅ TARGET=${TARGET:-default}"
 
-      # --------------------------------------------------
-      # STRUCTURE Directive
-      # --------------------------------------------------
+      # --------------------------
+      # Execute STRUCTURE
+      # --------------------------
       - name: Execute STRUCTURE
         if: steps.parse.outputs.directive == 'STRUCTURE'
         shell: bash
         run: |
           set -e
-
           echo "📦 Executing STRUCTURE directive"
 
           ROOT="_genesis/structure"
@@ -67,19 +66,19 @@ jobs:
           mkdir -p "$ROOT/tyme-interface"
           mkdir -p "$ROOT/tyme-directives"
 
-          cat > "$ROOT/tyme-core/README.md" <<'EOF'
+          cat > "$ROOT/tyme-core/README.md" << 'EOF'
 # tyme-core
 Sovereign coherence kernel.
 No UI. No execution authority.
 EOF
 
-          cat > "$ROOT/tyme-interface/README.md" <<'EOF'
+          cat > "$ROOT/tyme-interface/README.md" << 'EOF'
 # tyme-interface
 Human-facing dashboards and explorers.
 Never executes authority.
 EOF
 
-          cat > "$ROOT/tyme-directives/README.md" <<'EOF'
+          cat > "$ROOT/tyme-directives/README.md" << 'EOF'
 # tyme-directives
 Declarative intent envelopes.
 Parsed, validated, routed — never executed directly.
@@ -88,9 +87,9 @@ EOF
           cd _genesis
           zip -r "structure_${{ steps.parse.outputs.target }}.zip" structure
 
-      # --------------------------------------------------
-      # SIGN STRUCTURE Artifact
-      # --------------------------------------------------
+      # --------------------------
+      # Sign STRUCTURE Artifact
+      # --------------------------
       - name: Sign STRUCTURE Artifact
         if: steps.parse.outputs.directive == 'STRUCTURE'
         shell: bash
@@ -115,9 +114,9 @@ EOF
 }
 EOF
 
-      # --------------------------------------------------
-      # MANIFEST Directive
-      # --------------------------------------------------
+      # --------------------------
+      # Execute MANIFEST
+      # --------------------------
       - name: Execute MANIFEST
         if: steps.parse.outputs.directive == 'MANIFEST'
         shell: bash
@@ -125,7 +124,6 @@ EOF
           set -e
 
           echo "🧾 Executing MANIFEST directive"
-
           ROOT="_genesis/manifest"
           mkdir -p "$ROOT"
 
@@ -146,9 +144,9 @@ EOF
 }
 EOF
 
-      # --------------------------------------------------
-      # SIGN MANIFEST Artifact
-      # --------------------------------------------------
+      # --------------------------
+      # Sign MANIFEST Artifact
+      # --------------------------
       - name: Sign MANIFEST Artifact
         if: steps.parse.outputs.directive == 'MANIFEST'
         shell: bash
@@ -173,9 +171,9 @@ EOF
 }
 EOF
 
-      # --------------------------------------------------
+      # --------------------------
       # Upload STRUCTURE Artifact
-      # --------------------------------------------------
+      # --------------------------
       - name: Upload STRUCTURE Artifact
         if: steps.parse.outputs.directive == 'STRUCTURE'
         uses: actions/upload-artifact@v4
@@ -183,9 +181,9 @@ EOF
           name: tyme-structure-${{ steps.parse.outputs.target }}
           path: _genesis/structure_*.zip
 
-      # --------------------------------------------------
+      # --------------------------
       # Upload MANIFEST Artifact
-      # --------------------------------------------------
+      # --------------------------
       - name: Upload MANIFEST Artifact
         if: steps.parse.outputs.directive == 'MANIFEST'
         uses: actions/upload-artifact@v4
@@ -193,9 +191,9 @@ EOF
           name: tyme-manifest-${{ steps.parse.outputs.target }}
           path: _genesis/manifest/manifest.json
 
-      # --------------------------------------------------
+      # --------------------------
       # Upload SIGNATURE Artifacts
-      # --------------------------------------------------
+      # --------------------------
       - name: Upload SIGNATURE Artifacts
         if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'MANIFEST'
         uses: actions/upload-artifact@v4
