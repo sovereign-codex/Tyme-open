@@ -195,13 +195,13 @@ jobs:
           name: tyme-signatures-${{ steps.parse.outputs.target }}
           path: _genesis/signatures/*.sig.json
           if-no-files-found: warn
-      # --------------------------------------------------
-      # COMMIT Directive (gated)
-      # --------------------------------------------------
-      - name: Execute COMMIT
-        if: steps.parse.outputs.directive == 'COMMIT'
-        shell: bash
-        run: |
+# --------------------------------------------------
+# COMMIT Directive (gated)
+# --------------------------------------------------
+- name: Execute COMMIT
+  if: steps.parse.outputs.directive == 'COMMIT'
+  shell: bash
+  run: |
     set -e
 
     echo "🚨 COMMIT directive invoked"
@@ -224,4 +224,5 @@ jobs:
     }})"
 
     git push
+
 
