@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       directive_payload:
-        description: "TYME Directive (DIRECTIVE, TARGET, INTENT)"
+        description: "TYME Directive Envelope (e.g. DIRECTIVE: STRUCTURE TARGET: core)"
         required: true
         type: string
 
-jobs:
-  parse-and-route:
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
 
-    permissions:
-      contents: write
+jobs:
+  parse-and-execute:
+    runs-on: ubuntu-latest
 
     steps:
       # --------------------------------------------------
@@ -31,165 +31,94 @@ jobs:
         run: |
           set -e
 
-          echo "🔍 Parsing directive payload..."
-
+          echo "Parsing directive payload..."
           PAYLOAD="${{ github.event.inputs.directive_payload }}"
 
-          echo "Raw payload:"
-          echo "-------------------------"
-          echo "$PAYLOAD"
-          echo "-------------------------"
-
-          # Normalize to single line (GitHub UI safe)
           NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
 
-          DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^ ]*\).*/\1/p')
-          TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^ ]*\).*/\1/p')
+          DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^[:space:]]*\).*/\1/p')
+          TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^[:space:]]*\).*/\1/p')
 
-          if [[ -z "$DIRECTIVE" || -z "$TARGET" ]]; then
-            echo "❌ Missing DIRECTIVE or TARGET"
+          if [[ -z "$DIRECTIVE" ]]; then
+            echo "❌ Missing DIRECTIVE"
             exit 1
           fi
 
           echo "directive=$DIRECTIVE" >> "$GITHUB_OUTPUT"
-          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "target=${TARGET:-default}" >> "$GITHUB_OUTPUT"
 
-          echo "✅ Parsed DIRECTIVE=$DIRECTIVE"
-          echo "✅ Parsed TARGET=$TARGET"
-
-      # --------------------------------------------------
-      # Route Directive (no side effects)
-      # --------------------------------------------------
-      - name: Route Directive
-        shell: bash
-        run: |
-          echo "🧭 Routing directive: ${{ steps.parse.outputs.directive }}"
-
-          case "${{ steps.parse.outputs.directive }}" in
-            STRUCTURE)
-              echo "🧱 STRUCTURE directive acknowledged"
-              ;;
-            TRANSFER)
-              echo "📦 TRANSFER directive acknowledged (not implemented)"
-              ;;
-            ACTIVATE)
-              echo "⚡ ACTIVATE directive acknowledged (not implemented)"
-              ;;
-            PROPAGATE)
-              echo "🔁 PROPAGATE directive acknowledged (not implemented)"
-              ;;
-            SEAL)
-              echo "🔒 SEAL directive acknowledged (not implemented)"
-              ;;
-            *)
-              echo "❌ Unknown DIRECTIVE"
-              exit 1
-              ;;
-          esac
+          echo "✅ DIRECTIVE=$DIRECTIVE"
+          echo "✅ TARGET=${TARGET:-default}"
 
       # --------------------------------------------------
-      # Execute STRUCTURE Directive
+      # STRUCTURE Directive
       # --------------------------------------------------
-      - name: Execute STRUCTURE Directive
+      - name: Execute STRUCTURE
         if: steps.parse.outputs.directive == 'STRUCTURE'
         shell: bash
         run: |
           set -e
 
-          TARGET="${{ steps.parse.outputs.target }}"
-          TS="$(date -u +%Y%m%dT%H%M%SZ)"
-          ROOT="_genesis/${TARGET}"
+          echo "📦 Executing STRUCTURE directive"
 
-          echo "🧱 Executing STRUCTURE"
-          echo "Target: $TARGET"
-          echo "Root: $ROOT"
+          ROOT="_genesis/structure"
+          mkdir -p "$ROOT"
 
-          mkdir -p "$ROOT"/{tyme-core,coherence-engine,avot,docs}
+          mkdir -p "$ROOT/tyme-core"
+          mkdir -p "$ROOT/tyme-interface"
+          mkdir -p "$ROOT/tyme-directives"
 
-          # -----------------------------
-          # tyme-core README
-          # -----------------------------
           cat > "$ROOT/tyme-core/README.md" <<'EOF'
-# TYME Core
+          # tyme-core
+          Sovereign coherence kernel.
+          No UI. No execution authority.
+          EOF
 
-The sovereign coherence kernel.
+          cat > "$ROOT/tyme-interface/README.md" <<'EOF'
+          # tyme-interface
+          Human-facing dashboards and explorers.
+          Never executes authority.
+          EOF
 
-TYME is not a model.
-TYME is a seated, persistent intelligence substrate.
-
-This repository defines:
-- authority
-- coherence
-- audit
-- execution boundaries
-EOF
-
-          # -----------------------------
-          # coherence-engine README
-          # -----------------------------
-          cat > "$ROOT/coherence-engine/README.md" <<'EOF'
-# Coherence Engine
-
-Evaluates directives against policy, context, and audit history.
-
-Execution is permitted only when coherence is preserved.
-EOF
-
-          # -----------------------------
-          # AVOT README
-          # -----------------------------
-          cat > "$ROOT/avot/README.md" <<'EOF'
-# AVOT System
-
-Autonomous Voices of Thought.
-
-AVOTs reason and propose.
-They do not execute authority.
-EOF
-
-          # -----------------------------
-          # Docs README
-          # -----------------------------
-          cat > "$ROOT/docs/README.md" <<'EOF'
-# Documentation
-
-Generated artifacts and explanatory material.
-
-Safe for publication.
-EOF
-
-          # -----------------------------
-          # MANIFEST
-          # -----------------------------
-          MANIFEST="$ROOT/manifest.json"
-          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          cat > "$MANIFEST" <<EOF
-{
-  "directive": "STRUCTURE",
-  "target": "$TARGET",
-  "intent": "${{ github.event.inputs.directive_payload }}",
-  "generated_at": "$NOW",
-  "workflow": "tyme_directive.yml",
-  "job": "parse-and-route",
-  "commit": "${{ github.sha }}",
-  "repository": "${{ github.repository }}",
-  "actor": "${{ github.actor }}"
-}
-EOF
-
-          echo "🧾 Manifest created"
-
-          # -----------------------------
-          # Zip structure
-          # -----------------------------
-          ZIP_NAME="structure_${TARGET}_${TS}.zip"
+          cat > "$ROOT/tyme-directives/README.md" <<'EOF'
+          # tyme-directives
+          Declarative intent envelopes.
+          Parsed, validated, routed — never executed directly.
+          EOF
 
           cd _genesis
-          zip -r "../$ZIP_NAME" "$TARGET"
-          cd ..
+          zip -r structure_${{ steps.parse.outputs.target }}.zip structure
 
-          echo "📦 Created $ZIP_NAME"
+      # --------------------------------------------------
+      # MANIFEST Directive
+      # --------------------------------------------------
+      - name: Execute MANIFEST
+        if: steps.parse.outputs.directive == 'MANIFEST'
+        shell: bash
+        run: |
+          set -e
+
+          echo "🧾 Executing MANIFEST directive"
+
+          ROOT="_genesis/manifest"
+          mkdir -p "$ROOT"
+
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > "$ROOT/manifest.json" <<EOF
+          {
+            "system": "TYME",
+            "directive": "MANIFEST",
+            "target": "${{ steps.parse.outputs.target }}",
+            "generated_at": "$TIMESTAMP",
+            "principles": [
+              "no implicit authority",
+              "artifacts over commits",
+              "deterministic execution",
+              "human-verifiable output"
+            ]
+          }
+          EOF
 
       # --------------------------------------------------
       # Upload STRUCTURE Artifact
@@ -199,14 +128,14 @@ EOF
         uses: actions/upload-artifact@v4
         with:
           name: tyme-structure-${{ steps.parse.outputs.target }}
-          path: structure_*.zip
+          path: _genesis/structure_*.zip
 
       # --------------------------------------------------
       # Upload MANIFEST Artifact
       # --------------------------------------------------
       - name: Upload MANIFEST Artifact
-        if: steps.parse.outputs.directive == 'STRUCTURE'
+        if: steps.parse.outputs.directive == 'MANIFEST'
         uses: actions/upload-artifact@v4
         with:
           name: tyme-manifest-${{ steps.parse.outputs.target }}
-          path: _genesis/**/manifest.json
+          path: _genesis/manifest/manifest.json
