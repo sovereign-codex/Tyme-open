@@ -195,34 +195,31 @@ jobs:
           name: tyme-signatures-${{ steps.parse.outputs.target }}
           path: _genesis/signatures/*.sig.json
           if-no-files-found: warn
-# --------------------------------------------------
-# COMMIT Directive (gated)
-# --------------------------------------------------
-- name: Execute COMMIT
-  if: steps.parse.outputs.directive == 'COMMIT'
-  shell: bash
-  run: |
-    set -e
+      # --------------------------------------------
+      # COMMIT Directive (gated)
+      # --------------------------------------------
+      - name: Execute COMMIT
+        if: steps.parse.outputs.directive == 'COMMIT'
+        shell: bash
+        run: |
+          set -e
 
-    echo "🚨 COMMIT directive invoked"
-    echo "This will write artifacts into the repository"
+          echo "🚨 COMMIT directive invoked"
+          echo "This will write artifacts into the repository"
 
-    git config user.name "tyme-bot"
-    git config user.email "actions@github.com"
+          git config user.name "tyme-bot"
+          git config user.email "actions@github.com"
 
-    git status
+          git status
 
-    git add _genesis
+          git add _genesis
 
-    if git diff --cached --quiet; then
-      echo "⚠️ Nothing to commit"
-      exit 0
-    fi
+          if git diff --cached --quiet; then
+            echo "⚠️ Nothing to commit"
+            exit 0
+          fi
 
-    git commit -m "TYME COMMIT: promote signed artifacts (${{
-      steps.parse.outputs.target
-    }})"
-
-    git push
+        git commit -m "TYME COMMIT: artifacts for ${{ steps.parse.outputs.target }}"
+        git push origin HEAD:${{ github.ref_name }}
 
 
