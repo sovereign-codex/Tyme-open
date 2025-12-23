@@ -8,8 +8,13 @@ on:
         required: true
         type: string
 
+# Needed for COMMIT to push back to the repo.
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: tyme-directive-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   parse-and-execute:
@@ -21,6 +26,8 @@ jobs:
       # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # --------------------------------------------------
       # Parse Directive Envelope
@@ -29,34 +36,56 @@ jobs:
         id: parse
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           echo "Parsing directive payload..."
           PAYLOAD="${{ github.event.inputs.directive_payload }}"
-          NORMALIZED=$(echo "$PAYLOAD" | tr '\n' ' ')
+          NORMALIZED="$(echo "$PAYLOAD" | tr '\n' ' ' | sed 's/[[:space:]]\+/ /g' | sed 's/^ //; s/ $//')"
 
-          DIRECTIVE=$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^[:space:]]*\).*/\1/p')
-          TARGET=$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^[:space:]]*\).*/\1/p')
+          # Extract fields
+          DIRECTIVE_RAW="$(echo "$NORMALIZED" | sed -n 's/.*DIRECTIVE:[[:space:]]*\([^[:space:]]*\).*/\1/p' || true)"
+          TARGET_RAW="$(echo "$NORMALIZED" | sed -n 's/.*TARGET:[[:space:]]*\([^[:space:]]*\).*/\1/p' || true)"
 
-          if [[ -z "$DIRECTIVE" ]]; then
-            echo "❌ Missing DIRECTIVE"
+          if [[ -z "${DIRECTIVE_RAW}" ]]; then
+            echo "❌ Missing DIRECTIVE in payload"
+            echo "Payload was: $NORMALIZED"
             exit 1
           fi
 
+          # Normalize directive to UPPERCASE
+          DIRECTIVE="$(echo "$DIRECTIVE_RAW" | tr '[:lower:]' '[:upper:]')"
+
+          # Default target
+          TARGET="${TARGET_RAW:-core}"
+
+          # Sanitize target to a safe slug: lowercase, keep [a-z0-9-], convert others to '-'
+          TARGET_SLUG="$(echo "$TARGET" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9-]/-/g' \
+            | sed 's/--\+/-/g' \
+            | sed 's/^-//; s/-$//' )"
+
+          if [[ -z "${TARGET_SLUG}" ]]; then
+            TARGET_SLUG="core"
+          fi
+
           echo "directive=$DIRECTIVE" >> "$GITHUB_OUTPUT"
-          echo "target=${TARGET:-default}" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "target_slug=$TARGET_SLUG" >> "$GITHUB_OUTPUT"
 
           echo "✅ DIRECTIVE=$DIRECTIVE"
-          echo "✅ TARGET=${TARGET:-default}"
+          echo "✅ TARGET=$TARGET"
+          echo "✅ TARGET_SLUG=$TARGET_SLUG"
 
       # --------------------------------------------------
-      # STRUCTURE Directive
+      # STRUCTURE Directive (runs for STRUCTURE and COMMIT)
       # --------------------------------------------------
       - name: Execute STRUCTURE
-        if: steps.parse.outputs.directive == 'STRUCTURE'
+        if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'COMMIT'
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           echo "📦 Executing STRUCTURE directive"
 
           ROOT="_genesis/structure"
@@ -80,29 +109,27 @@ jobs:
           Parsed, validated, routed — never executed directly.
           EOF
 
-          cd _genesis
-          zip -r "structure_${{ steps.parse.outputs.target }}.zip" structure
+          (cd _genesis && zip -r "structure_${{ steps.parse.outputs.target_slug }}.zip" structure)
 
-      # --------------------------------------------------
-      # SIGN STRUCTURE Artifact
-      # --------------------------------------------------
       - name: Sign STRUCTURE Artifact
-        if: steps.parse.outputs.directive == 'STRUCTURE'
+        if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'COMMIT'
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           echo "🔏 Signing STRUCTURE artifact"
 
-          ARTIFACT="_genesis/structure_${{ steps.parse.outputs.target }}.zip"
+          ARTIFACT="_genesis/structure_${{ steps.parse.outputs.target_slug }}.zip"
           SIG_DIR="_genesis/signatures"
           mkdir -p "$SIG_DIR"
 
-          HASH=$(sha256sum "$ARTIFACT" | awk '{print $1}')
+          HASH="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
 
-          cat > "$SIG_DIR/structure_${{ steps.parse.outputs.target }}.sig.json" <<EOF
+          cat > "$SIG_DIR/structure_${{ steps.parse.outputs.target_slug }}.sig.json" <<EOF
           {
             "type": "structure",
             "target": "${{ steps.parse.outputs.target }}",
+            "target_slug": "${{ steps.parse.outputs.target_slug }}",
             "algorithm": "sha256",
             "hash": "$HASH",
             "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -110,25 +137,27 @@ jobs:
           EOF
 
       # --------------------------------------------------
-      # MANIFEST Directive
+      # MANIFEST Directive (runs for MANIFEST and COMMIT)
       # --------------------------------------------------
       - name: Execute MANIFEST
-        if: steps.parse.outputs.directive == 'MANIFEST'
+        if: steps.parse.outputs.directive == 'MANIFEST' || steps.parse.outputs.directive == 'COMMIT'
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           echo "🧾 Executing MANIFEST directive"
 
           ROOT="_genesis/manifest"
           mkdir -p "$ROOT"
 
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
           cat > "$ROOT/manifest.json" <<EOF
           {
             "system": "TYME",
             "directive": "MANIFEST",
             "target": "${{ steps.parse.outputs.target }}",
+            "target_slug": "${{ steps.parse.outputs.target_slug }}",
             "generated_at": "$TIMESTAMP",
             "principles": [
               "no implicit authority",
@@ -139,26 +168,25 @@ jobs:
           }
           EOF
 
-      # --------------------------------------------------
-      # SIGN MANIFEST Artifact
-      # --------------------------------------------------
       - name: Sign MANIFEST Artifact
-        if: steps.parse.outputs.directive == 'MANIFEST'
+        if: steps.parse.outputs.directive == 'MANIFEST' || steps.parse.outputs.directive == 'COMMIT'
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           echo "🔏 Signing MANIFEST artifact"
 
           ARTIFACT="_genesis/manifest/manifest.json"
           SIG_DIR="_genesis/signatures"
           mkdir -p "$SIG_DIR"
 
-          HASH=$(sha256sum "$ARTIFACT" | awk '{print $1}')
+          HASH="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
 
-          cat > "$SIG_DIR/manifest_${{ steps.parse.outputs.target }}.sig.json" <<EOF
+          cat > "$SIG_DIR/manifest_${{ steps.parse.outputs.target_slug }}.sig.json" <<EOF
           {
             "type": "manifest",
             "target": "${{ steps.parse.outputs.target }}",
+            "target_slug": "${{ steps.parse.outputs.target_slug }}",
             "algorithm": "sha256",
             "hash": "$HASH",
             "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -166,52 +194,50 @@ jobs:
           EOF
 
       # --------------------------------------------------
-      # Upload STRUCTURE Artifact
+      # Upload Artifacts
       # --------------------------------------------------
       - name: Upload STRUCTURE Artifact
-        if: steps.parse.outputs.directive == 'STRUCTURE'
+        if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'COMMIT'
         uses: actions/upload-artifact@v4
         with:
-          name: tyme-structure-${{ steps.parse.outputs.target }}
-          path: _genesis/structure_*.zip
+          name: tyme-structure-${{ steps.parse.outputs.target_slug }}
+          path: _genesis/structure_${{ steps.parse.outputs.target_slug }}.zip
+          if-no-files-found: error
 
-      # --------------------------------------------------
-      # Upload MANIFEST Artifact
-      # --------------------------------------------------
       - name: Upload MANIFEST Artifact
-        if: steps.parse.outputs.directive == 'MANIFEST'
+        if: steps.parse.outputs.directive == 'MANIFEST' || steps.parse.outputs.directive == 'COMMIT'
         uses: actions/upload-artifact@v4
         with:
-          name: tyme-manifest-${{ steps.parse.outputs.target }}
+          name: tyme-manifest-${{ steps.parse.outputs.target_slug }}
           path: _genesis/manifest/manifest.json
+          if-no-files-found: error
 
-      # --------------------------------------------------
-      # Upload SIGNATURE Artifacts
-      # --------------------------------------------------
       - name: Upload SIGNATURE Artifacts
-        if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'MANIFEST'
+        if: steps.parse.outputs.directive == 'STRUCTURE' || steps.parse.outputs.directive == 'MANIFEST' || steps.parse.outputs.directive == 'COMMIT'
         uses: actions/upload-artifact@v4
         with:
-          name: tyme-signatures-${{ steps.parse.outputs.target }}
+          name: tyme-signatures-${{ steps.parse.outputs.target_slug }}
           path: _genesis/signatures/*.sig.json
           if-no-files-found: warn
-      # --------------------------------------------
+
+      # --------------------------------------------------
       # COMMIT Directive (gated)
-      # --------------------------------------------
+      # - COMMIT runs the pipeline above (STRUCTURE+MANIFEST+SIGN+UPLOAD)
+      # - Then canonizes by committing _genesis back into the repo
+      # --------------------------------------------------
       - name: Execute COMMIT
         if: steps.parse.outputs.directive == 'COMMIT'
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          echo "🚨 COMMIT directive invoked"
-          echo "This will write artifacts into the repository"
+          echo "🧨 COMMIT directive invoked"
+          echo "This will write artifacts into the repository under _genesis/"
 
           git config user.name "tyme-bot"
           git config user.email "actions@github.com"
 
           git status
-
           git add _genesis
 
           if git diff --cached --quiet; then
@@ -219,7 +245,10 @@ jobs:
             exit 0
           fi
 
-        git commit -m "TYME COMMIT: artifacts for ${{ steps.parse.outputs.target }}"
-        git push origin HEAD:${{ github.ref_name }}
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git commit -m "TYME COMMIT: ${{
+            steps.parse.outputs.target_slug
+          }} @ ${TS}"
 
-
+          # Push back to the same branch/ref
+          git push origin HEAD:${{ github.ref_name }}
