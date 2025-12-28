@@ -190,3 +190,9 @@ jobs:
 
           git commit -m "TYME COMMIT: materialized artifacts"
           git push origin HEAD:${{ github.ref_name }}
+
+      - name: Write codex report
+        if: always()
+        run: |
+          cp codex/report_template.json codex_report.json
+          echo "Codex report written to codex_report.json." >> "$GITHUB_STEP_SUMMARY"

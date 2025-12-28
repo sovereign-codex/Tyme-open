@@ -87,3 +87,9 @@ jobs:
       run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Write codex report
+      if: always()
+      run: |
+        cp codex/report_template.json codex_report.json
+        echo "Codex report written to codex_report.json." >> "$GITHUB_STEP_SUMMARY"
