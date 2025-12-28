@@ -1,0 +1,9 @@
+{
+  "workflow": "PLACEHOLDER_WORKFLOW",
+  "status": "PLACEHOLDER_STATUS",
+  "phase": "PLACEHOLDER_PHASE",
+  "codex_version": "PLACEHOLDER_CODEX_VERSION",
+  "timestamp": "PLACEHOLDER_TIMESTAMP",
+  "failure_reason": null,
+  "suggested_fix": null
+}
