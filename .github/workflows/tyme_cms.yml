@@ -46,6 +46,69 @@ jobs:
         run: |
           python3 backend/cms_bindings.py "${{ github.event.inputs.command }}"
 
+      - name: Generate directive payload
+        id: directive_payload
+        env:
+          DIRECTIVE_COMMAND: ${{ github.event.inputs.command }}
+          PAYLOAD_PATH: codex_directive_payload.json
+        run: |
+          payload_path="codex_directive_payload.json"
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+
+          payload = {
+              "directive": os.environ["DIRECTIVE_COMMAND"],
+              "target": "tyme_cms",
+              "generated_at": datetime.datetime.utcnow()
+              .replace(microsecond=0)
+              .isoformat()
+              + "Z",
+              "source": "CMS",
+          }
+
+          with open(os.environ["PAYLOAD_PATH"], "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+          PY
+          echo "payload_path=$payload_path" >> "$GITHUB_OUTPUT"
+
+      - name: Validate directive payload (warn only)
+        id: validate_directive
+        run: |
+          set +e
+          payload_path="${{ steps.directive_payload.outputs.payload_path }}"
+          validation_output="$(python3 codex/validate_directive.py "$payload_path" 2>&1)"
+          status=$?
+          if [ $status -eq 0 ]; then
+            validation_passed=true
+            validation_errors_json="[]"
+          else
+            validation_passed=false
+            export VALIDATION_OUTPUT="$validation_output"
+            validation_errors_json="$(python3 - <<'PY'
+          import json
+          import os
+
+          lines = os.environ.get("VALIDATION_OUTPUT", "").splitlines()
+          errors = [line[2:].strip() for line in lines if line.startswith("- ")]
+          print(json.dumps(errors))
+          PY
+            )"
+          fi
+          echo "validation_passed=$validation_passed" >> "$GITHUB_OUTPUT"
+          {
+            echo "validation_errors<<EOF"
+            echo "$validation_errors_json"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$validation_passed" = "true" ]; then
+            echo "Directive payload validation: PASSED (warn-only)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Directive payload validation: FAILED (warn-only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Write codex report
         if: always()
         run: |
@@ -58,6 +121,9 @@ jobs:
             data = json.load(f)
           data["codex_version"] = os.environ["CODEX_VERSION"]
           data["stability_level"] = os.environ["STABILITY_LEVEL"]
+          data["validation_passed"] = os.environ["VALIDATION_PASSED"].lower() == "true"
+          validation_errors = os.environ.get("VALIDATION_ERRORS", "[]")
+          data["validation_errors"] = json.loads(validation_errors)
           with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
             f.write("\n")
@@ -66,3 +132,5 @@ jobs:
         env:
           CODEX_VERSION: ${{ steps.codex_contract.outputs.codex_version }}
           STABILITY_LEVEL: ${{ steps.codex_contract.outputs.stability_level }}
+          VALIDATION_PASSED: ${{ steps.validate_directive.outputs.validation_passed }}
+          VALIDATION_ERRORS: ${{ steps.validate_directive.outputs.validation_errors }}
