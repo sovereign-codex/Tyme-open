@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tyme-open.local/schemas/directive.v1.schema.json",
+  "title": "Directive Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "directive": {
+      "type": "string",
+      "description": "Identifier or name of the directive being issued."
+    },
+    "target": {
+      "type": "string",
+      "description": "Optional target identifier the directive applies to."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp (ISO-8601) indicating when the directive was generated."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["CMS", "MANUAL"],
+      "description": "Origin of the directive payload."
+    }
+  },
+  "required": ["directive"]
+}
