@@ -57,6 +57,18 @@ jobs:
           import datetime
           import json
           import os
+          import uuid
+          from pathlib import Path
+
+          report_data = {}
+          try:
+            report_data = json.loads(Path("codex_report.json").read_text(encoding="utf-8"))
+          except Exception:
+            report_data = {}
+          previous_trace = report_data.get("directive_traceability") or {}
+          previous_directive_id = previous_trace.get("directive_id")
+          chain_position = int(previous_trace.get("chain_position") or 0) + 1
+          directive_id = str(uuid.uuid4())
 
           payload = {
               "directive": os.environ["DIRECTIVE_COMMAND"],
@@ -66,11 +78,19 @@ jobs:
               .isoformat()
               + "Z",
               "source": "CMS",
+              "directive_id": directive_id,
+              "previous_directive_id": previous_directive_id,
+              "chain_position": chain_position,
           }
 
           with open(os.environ["PAYLOAD_PATH"], "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
             handle.write("\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+            handle.write(f"directive_id={directive_id}\n")
+            handle.write(f"previous_directive_id={previous_directive_id or ''}\n")
+            handle.write(f"chain_position={chain_position}\n")
           PY
           echo "payload_path=$payload_path" >> "$GITHUB_OUTPUT"
 
@@ -124,6 +144,11 @@ jobs:
           data["validation_passed"] = os.environ["VALIDATION_PASSED"].lower() == "true"
           validation_errors = os.environ.get("VALIDATION_ERRORS", "[]")
           data["validation_errors"] = json.loads(validation_errors)
+          data["directive_traceability"] = {
+            "directive_id": os.environ["DIRECTIVE_ID"],
+            "previous_directive_id": os.environ.get("PREVIOUS_DIRECTIVE_ID") or None,
+            "chain_position": int(os.environ["CHAIN_POSITION"]),
+          }
           with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
             f.write("\n")
@@ -134,3 +159,6 @@ jobs:
           STABILITY_LEVEL: ${{ steps.codex_contract.outputs.stability_level }}
           VALIDATION_PASSED: ${{ steps.validate_directive.outputs.validation_passed }}
           VALIDATION_ERRORS: ${{ steps.validate_directive.outputs.validation_errors }}
+          DIRECTIVE_ID: ${{ steps.directive_payload.outputs.directive_id }}
+          PREVIOUS_DIRECTIVE_ID: ${{ steps.directive_payload.outputs.previous_directive_id }}
+          CHAIN_POSITION: ${{ steps.directive_payload.outputs.chain_position }}

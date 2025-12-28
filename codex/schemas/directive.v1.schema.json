@@ -22,6 +22,20 @@
       "type": "string",
       "enum": ["CMS", "MANUAL"],
       "description": "Origin of the directive payload."
+    },
+    "directive_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Optional UUID assigned to this directive."
+    },
+    "previous_directive_id": {
+      "type": ["string", "null"],
+      "description": "Optional UUID of the previous directive in the chain."
+    },
+    "chain_position": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional best-effort incremental position within the directive chain."
     }
   },
   "required": ["directive"]
