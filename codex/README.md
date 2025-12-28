@@ -18,6 +18,14 @@ Chaining is modeled by linking to the immediate predecessor via `previous_direct
 
 Tier-5 is WARN-ONLY: missing or inconsistent traceability data must not block workflows or change enforcement behavior. These fields are intended for auditing and context, not for validation gates or permission decisions.
 
+## Tier-6: Semantic Validation (WARN-ONLY)
+
+Tier-6 introduces semantic validation as a best-effort review of directive wording. It scans directive text for ambiguous language, potential contradictions between current and previous directives, and deprecated verbs that should be avoided in modern guidance.
+
+Tier-6 is WARN-ONLY because semantic signals are inherently heuristic. The goal is to surface human-readable hints (for example, ambiguous verbs like "should" or "consider", contradictions like "allow" vs "disallow", and deprecated verbs like "blacklist") without enforcing or blocking workflows.
+
+Explicitly, Tier-6 provides **no enforcement**: it does not fail workflows, does not alter permissions or triggers, and does not override directive intent. Warnings are informational only.
+
 ## What Codex Does Not Control
 
 Codex does not control execution, approvals, or governance decisions. It does not manage repository permissions, deploy pipelines, or merge behavior. It only defines how information is represented and recorded.
