@@ -26,6 +26,16 @@ Tier-6 is WARN-ONLY because semantic signals are inherently heuristic. The goal 
 
 Explicitly, Tier-6 provides **no enforcement**: it does not fail workflows, does not alter permissions or triggers, and does not override directive intent. Warnings are informational only.
 
+## Tier-7: Policy Simulation (WARN-ONLY)
+
+Tier-7 adds policy simulation as a dry-run evaluation of repository-defined policies. Policy simulation reads policy definitions and emits a structured summary of potential issues and recommendations without making any enforcement decisions.
+
+The `simulate_only` flag marks a policy as non-authoritative. Policies tagged this way are evaluated strictly for informational output; they never block a workflow, fail a job, or change permissions or triggers.
+
+Nothing blocks in Tier-7 by design. The output is intended for review context and future hardening, not for gating changes or controlling execution.
+
+To add policies safely, define them in the policy manifest with clear, plain-English predicates, set `simulate_only: true`, and keep scopes and severities conservative. Avoid introducing assumptions that would require enforcement or external data sources. Policies should remain best-effort and resilient to missing inputs.
+
 ## What Codex Does Not Control
 
 Codex does not control execution, approvals, or governance decisions. It does not manage repository permissions, deploy pipelines, or merge behavior. It only defines how information is represented and recorded.
