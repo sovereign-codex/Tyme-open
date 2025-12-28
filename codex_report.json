@@ -1,0 +1,9 @@
+{
+  "workflow": "schema_validation_warn_only",
+  "status": "informational",
+  "phase": "acknowledgement",
+  "codex_version": "v1",
+  "timestamp": "2025-09-27T22:26:14Z",
+  "failure_reason": null,
+  "suggested_fix": "NOT IMPLEMENTED: enforce schema validation gating."
+}
