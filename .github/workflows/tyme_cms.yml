@@ -33,3 +33,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # make sure this is set
         run: |
           python3 backend/cms_bindings.py "${{ github.event.inputs.command }}"
+
+      - name: Write codex report
+        if: always()
+        run: |
+          cp codex/report_template.json codex_report.json
+          echo "Codex report written to codex_report.json." >> "$GITHUB_STEP_SUMMARY"
