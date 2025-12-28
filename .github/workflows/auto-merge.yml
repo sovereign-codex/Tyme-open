@@ -16,6 +16,18 @@ jobs:
     - name: Check out
       uses: actions/checkout@v4
 
+    - name: Read codex contract
+      id: codex_contract
+      shell: bash
+      run: |
+        set -e
+        CODEX_VERSION=$(awk -F': ' '/^codex_version:/ {gsub(/"/,"",$2); print $2}' codex.contract.yaml)
+        STABILITY_LEVEL=$(awk -F': ' '/^stability_level:/ {gsub(/"/,"",$2); print $2}' codex.contract.yaml)
+        echo "codex_version=$CODEX_VERSION" >> "$GITHUB_OUTPUT"
+        echo "stability_level=$STABILITY_LEVEL" >> "$GITHUB_OUTPUT"
+        echo "Codex contract codex_version=$CODEX_VERSION"
+        echo "Codex contract stability_level=$STABILITY_LEVEL"
+
     - name: Install Python
       uses: actions/setup-python@v4
       with:
@@ -92,4 +104,19 @@ jobs:
       if: always()
       run: |
         cp codex/report_template.json codex_report.json
+        python3 - <<'PY'
+        import json
+        import os
+        path = "codex_report.json"
+        with open(path, "r", encoding="utf-8") as f:
+          data = json.load(f)
+        data["codex_version"] = os.environ["CODEX_VERSION"]
+        data["stability_level"] = os.environ["STABILITY_LEVEL"]
+        with open(path, "w", encoding="utf-8") as f:
+          json.dump(data, f, indent=2)
+          f.write("\n")
+        PY
         echo "Codex report written to codex_report.json." >> "$GITHUB_STEP_SUMMARY"
+      env:
+        CODEX_VERSION: ${{ steps.codex_contract.outputs.codex_version }}
+        STABILITY_LEVEL: ${{ steps.codex_contract.outputs.stability_level }}
