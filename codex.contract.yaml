@@ -1,0 +1,13 @@
+codex_version: "0.1"
+stability_level: experimental
+directive_schema_version: "0.1"
+
+guardian_policy_flags:
+  avot_guardian_review: true
+  coherence_scan: true
+  safety_alignment_note: true
+
+cms_output_intent:
+  channel: cms
+  format: declarative
+  audience: tyme_workflows
