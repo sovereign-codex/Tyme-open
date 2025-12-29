@@ -198,6 +198,13 @@ jobs:
           # Phase-3: Lattice trend awareness (read-only, observational)
           python3 codex/lattice/compute_trends.py
 
+      - name: Compute lattice anomalies (Phase-4, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-4: Lattice anomaly narratives (read-only, explanatory)
+          python3 codex/lattice/compute_anomalies.py
+
       - name: Summarize lattice delta (Phase-2, warn-only)
         if: always()
         continue-on-error: true
@@ -283,6 +290,33 @@ jobs:
           PY
           cat lattice_trends_summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Summarize lattice anomalies (Phase-4, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          anomalies_path = Path("codex/lattice/anomalies.md")
+          lines = ["### Lattice anomalies (Phase-4, warn-only)"]
+          if not anomalies_path.exists():
+            lines.append("- No lattice anomaly narratives generated yet.")
+          else:
+            content = anomalies_path.read_text(encoding="utf-8").splitlines()
+            summary_started = False
+            for line in content:
+              if line.strip() == "## Summary":
+                summary_started = True
+                continue
+              if summary_started:
+                if line.startswith("## "):
+                  break
+                if line.strip():
+                  lines.append(line)
+          Path("lattice_anomalies_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat lattice_anomalies_summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload lattice artifacts (Phase-1.5, warn-only)
         if: always()
         continue-on-error: true
@@ -295,8 +329,10 @@ jobs:
             codex/lattice/delta.json
             codex/lattice/history.json
             codex/lattice/trends.json
+            codex/lattice/anomalies.md
             codex/lattice/signals.schema.json
             lattice_summary.md
             lattice_delta_summary.md
             lattice_trends_summary.md
+            lattice_anomalies_summary.md
           if-no-files-found: warn
