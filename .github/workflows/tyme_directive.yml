@@ -203,6 +203,13 @@ jobs:
           git commit -m "TYME COMMIT: materialized artifacts"
           git push origin HEAD:${{ github.ref_name }}
 
+      - name: Emit lattice signal (Phase-1, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-1 lattice wiring: append-only signals.jsonl, no gating/enforcement.
+          python3 codex/lattice/emit_signal.py
+
       - name: Write codex report
         if: always()
         run: |
@@ -223,3 +230,10 @@ jobs:
         env:
           CODEX_VERSION: ${{ steps.codex_contract.outputs.codex_version }}
           STABILITY_LEVEL: ${{ steps.codex_contract.outputs.stability_level }}
+
+      - name: Index lattice signals (Phase-1, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-1 lattice wiring: derived index.json only, never gates workflow.
+          python3 codex/lattice/index_signals.py
