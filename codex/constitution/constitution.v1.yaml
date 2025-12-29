@@ -1,0 +1,67 @@
+version: 1
+name: "Tyme Constitutional Charter"
+status: "active"
+summary: "Governance-only guardrails for opt-in authority."
+
+governance:
+  roles:
+    - steward
+    - guardian
+    - maintainer
+  opt_in_required: true
+  change_control:
+    authority_state_updates_require_attestation: true
+    attestation_review_required: true
+    human_authored_only: true
+
+invariants:
+  default_authority: "off"
+  no_silent_enforcement: true
+  no_automatic_escalation: true
+  reversible_activation: true
+  explicit_human_consent_required: true
+  enforceable_policies_must_be_opt_in: true
+  enforcement_must_be_scoped: true
+  enforcement_requires_attestation: true
+  enforcement_requires_stability_threshold: true
+
+authority_model:
+  description: "Authority is scoped, explicit, time-bounded, and reversible."
+  scope_boundaries:
+    - workflow
+    - repository
+    - path
+    - policy_id
+  time_boundaries:
+    - expires_at
+  actor_boundaries:
+    - steward
+    - guardian
+    - maintainer
+  action_boundaries:
+    - enforce_policy
+    - block_merge
+    - block_release
+  prohibited:
+    - global_admin_without_multi_sig
+    - automatic_enabling
+    - implicit_enabling_via_code_change
+
+enforcement_eligibility:
+  default_policy_mode: "simulation_only"
+  requires:
+    constitution_allows_enforceable_policies: true
+    authority_enabled: true
+    valid_attestation: true
+    stability_threshold: "stable"
+    scoped_and_time_bounded: true
+
+multi_sig:
+  enabled: false
+  required_approvers: 2
+  approver_roles:
+    - steward
+    - guardian
+    - maintainer
+  approval_window_hours: 24
+  future_notes: "Multi-sig can be enforced by requiring multiple attestations with distinct approver roles."
