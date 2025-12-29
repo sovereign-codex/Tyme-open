@@ -472,6 +472,29 @@ jobs:
           PY
           cat lattice_canonical_summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Validate constitution (Phase-9, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 codex/constitution/validate_constitution.py \
+            --report-path constitution_report.json \
+            --summary-path constitution_summary.md
+          cat constitution_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload constitution artifacts (Phase-9, warn-only)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: constitution-artifacts
+          path: |
+            codex/constitution/constitution.v1.yaml
+            codex/constitution/authority_state.json
+            codex/constitution/attestations
+            constitution_report.json
+            constitution_summary.md
+          if-no-files-found: warn
+
       - name: Upload lattice artifacts (Phase-1.5, warn-only)
         if: always()
         continue-on-error: true

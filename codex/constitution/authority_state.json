@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "mode": "simulation_only",
+  "allowed_scopes": [],
+  "allowed_policies": [],
+  "granted_by": null,
+  "granted_at": null,
+  "expires_at": null
+}
