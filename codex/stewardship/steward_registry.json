@@ -1,0 +1,25 @@
+{
+  "registry_version": "1.0",
+  "archival_mode": false,
+  "archival_mode_declared_at": null,
+  "archival_mode_declared_by": null,
+  "stewards": [
+    {
+      "steward_id": "steward-0001",
+      "name_or_alias": "Founding Steward",
+      "roles": [
+        "Primary Steward",
+        "Constitutional Steward",
+        "Historical Steward"
+      ],
+      "appointed_by": "Founding Council",
+      "appointed_at": "2025-01-01T00:00:00Z",
+      "term": {
+        "start": "2025-01-01T00:00:00Z",
+        "end": null
+      },
+      "status": "active",
+      "notes": "Initial stewardship placeholder; update via PR when human stewards are named."
+    }
+  ]
+}

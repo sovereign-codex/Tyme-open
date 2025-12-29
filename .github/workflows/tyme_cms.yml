@@ -221,6 +221,27 @@ jobs:
             constitution_summary.md
           if-no-files-found: warn
 
+      - name: Validate stewardship artifacts (Phase-10, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 codex/stewardship/validate_stewardship.py --summary-path stewardship_summary.md
+          cat stewardship_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload stewardship artifacts (Phase-10, warn-only)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: stewardship-artifacts
+          path: |
+            codex/stewardship/stewardship_charter.md
+            codex/stewardship/steward_registry.json
+            codex/stewardship/succession_protocol.md
+            codex/stewardship/continuity_checklist.md
+            stewardship_summary.md
+          if-no-files-found: warn
+
       - name: Compute lattice anomalies (Phase-4, warn-only)
         if: always()
         continue-on-error: true
