@@ -1,0 +1,20 @@
+{
+  "summary_id": "canonical-b5eb0900675f",
+  "generated_at": "n/a",
+  "horizon": {
+    "number_of_runs": 0,
+    "time_span": "n/a"
+  },
+  "dominant_trends": [
+    "Insufficient history for long-horizon trends."
+  ],
+  "recurring_anomalies": [],
+  "stability_assessment": {
+    "classification": "emerging",
+    "reason": "insufficient history"
+  },
+  "notable_shifts": [
+    "No notable shifts detected."
+  ],
+  "confidence_level": "low"
+}
