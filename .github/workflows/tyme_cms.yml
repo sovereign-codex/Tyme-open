@@ -205,6 +205,13 @@ jobs:
           # Phase-4: Lattice anomaly narratives (read-only, explanatory)
           python3 codex/lattice/compute_anomalies.py
 
+      - name: Lattice query snapshot (Phase-5, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 codex/lattice/query_lattice.py status --format text > lattice_query_snapshot.md
+          cat lattice_query_snapshot.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Summarize lattice delta (Phase-2, warn-only)
         if: always()
         continue-on-error: true
