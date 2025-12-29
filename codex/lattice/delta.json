@@ -1,0 +1,23 @@
+{
+  "run_id": "unknown",
+  "workflow_name": "unknown",
+  "commit_sha": "unknown",
+  "timestamp_utc": "2025-12-29T05:40:12Z",
+  "bootstrap": true,
+  "changes": {
+    "total_signals": 0,
+    "by_severity": {
+      "info": 0,
+      "low": 0,
+      "medium": 0,
+      "high": 0
+    },
+    "by_scope": {
+      "guardian": 0,
+      "cms": 0,
+      "directive": 0
+    },
+    "new_signal_types": [],
+    "removed_signal_types": []
+  }
+}
