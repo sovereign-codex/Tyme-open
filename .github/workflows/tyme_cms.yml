@@ -176,3 +176,42 @@ jobs:
         run: |
           # Phase-1 lattice wiring: derived index.json only, never gates workflow.
           python3 codex/lattice/index_signals.py
+
+      - name: Summarize lattice signals (Phase-1.5, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          index_path = Path("codex/lattice/index.json")
+          lines = ["### Lattice signals (Phase-1.5, warn-only)"]
+          if not index_path.exists():
+            lines.append("- No lattice index generated yet.")
+          else:
+            data = json.loads(index_path.read_text(encoding="utf-8"))
+            lines.append(f"- Total signals: {data.get('total_signals', 0)}")
+            latest = data.get("latest_signal_at") or "n/a"
+            lines.append(f"- Latest signal: {latest}")
+            by_type = data.get("by_type") or {}
+            if by_type:
+              lines.append("- By type:")
+              for key, value in sorted(by_type.items()):
+                lines.append(f"  - {key}: {value}")
+          Path("lattice_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat lattice_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload lattice artifacts (Phase-1.5, warn-only)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: lattice-artifacts
+          path: |
+            codex/lattice/signals.jsonl
+            codex/lattice/index.json
+            codex/lattice/signals.schema.json
+            lattice_summary.md
+          if-no-files-found: warn
