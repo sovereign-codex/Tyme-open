@@ -1,0 +1,5 @@
+{
+  "top_signal_types_limit": 25,
+  "include_annotations_counts": true,
+  "include_canonical_summary": true
+}
