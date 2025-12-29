@@ -1,58 +1,112 @@
 version: 1
+
+mode: simulation_only
+tier: 7
+
+description: >
+  Tier-7 Codex Policy Registry.
+  All policies defined in this file are SIMULATION-ONLY.
+  No policy in this registry may block execution, fail workflows,
+  gate merges, or trigger enforcement actions.
+  This file establishes the lattice-ready policy surface
+  used for observability, reasoning, and future non-blocking guidance.
+
+invariants:
+  - no_blocking: true
+  - no_failures: true
+  - no_gating: true
+  - no_auto_merge_interference: true
+  - evaluation_mode: observational
+  - future_enforcement_allowed: false
+
 policies:
+
   - id: POL-001
     description: Detect potential secret material added to tracked files.
     scope: guardian
     severity: high
     simulate_only: true
-    predicate: Warn when newly added or modified content includes strings that look like API keys, tokens, or private keys.
-    recommendation: Remove secrets from source control and use secure secret storage.
+    predicate: >
+      Warn when newly added or modified content includes strings
+      that resemble API keys, access tokens, or private keys.
+    recommendation: >
+      Remove secrets from source control and use secure secret
+      storage mechanisms such as repository secrets or vaults.
+
   - id: POL-002
     description: Identify unusually large files introduced in changes.
     scope: cms
     severity: medium
     simulate_only: true
-    predicate: Warn when a newly added or modified file exceeds a reasonable size threshold for source control.
-    recommendation: Store large artifacts in approved storage and reference them instead.
+    predicate: >
+      Warn when a newly added or modified file exceeds a reasonable
+      size threshold for source control.
+    recommendation: >
+      Store large artifacts in approved storage locations and
+      reference them instead of committing directly.
+
   - id: POL-003
     description: Highlight missing license headers on new source files.
     scope: directive
     severity: low
     simulate_only: true
-    predicate: Warn when a new source file lacks the standard project license header.
-    recommendation: Add the approved license header to new source files.
+    predicate: >
+      Warn when a new source file lacks the standard project
+      license header.
+    recommendation: >
+      Add the approved license header to all new source files.
+
   - id: POL-004
     description: Surface dependency changes without matching lockfile updates.
     scope: guardian
     severity: medium
     simulate_only: true
-    predicate: Warn when dependency manifests change without a corresponding update to lockfiles.
-    recommendation: Regenerate and commit the appropriate lockfiles.
+    predicate: >
+      Warn when dependency manifests change without corresponding
+      updates to lockfiles.
+    recommendation: >
+      Regenerate and commit the appropriate lockfiles.
+
   - id: POL-005
     description: Flag changes to critical configuration files without documentation updates.
     scope: directive
     severity: low
     simulate_only: true
-    predicate: Warn when configuration files are modified without updates to related documentation or changelogs.
-    recommendation: Update documentation to reflect configuration changes.
+    predicate: >
+      Warn when configuration files are modified without updates
+      to related documentation or changelogs.
+    recommendation: >
+      Update documentation to reflect configuration changes.
+
   - id: POL-006
     description: Detect unsafe execution patterns in code changes.
     scope: guardian
     severity: high
     simulate_only: true
-    predicate: Warn when new or modified code introduces dynamic execution or shell invocation in production paths.
-    recommendation: Refactor to safer APIs or add justification and safeguards.
+    predicate: >
+      Warn when new or modified code introduces dynamic execution,
+      shell invocation, or unsafe evaluation in production paths.
+    recommendation: >
+      Refactor to safer APIs or document justification and safeguards.
+
   - id: POL-007
     description: Surface test coverage gaps for changed modules.
     scope: cms
     severity: medium
     simulate_only: true
-    predicate: Warn when code changes in core modules are not accompanied by related test updates.
-    recommendation: Add or update tests covering the modified behavior.
+    predicate: >
+      Warn when code changes in core modules are not accompanied
+      by related test updates.
+    recommendation: >
+      Add or update tests covering the modified behavior.
+
   - id: POL-008
-    description: Highlight direct edits to generated or vendor files.
+    description: Highlight direct edits to generated or vendor-managed files.
     scope: directive
     severity: info
     simulate_only: true
-    predicate: Warn when changes are made directly in generated or vendor-managed files.
-    recommendation: Update the source of generation or vendor configuration instead.
+    predicate: >
+      Warn when changes are made directly in generated or
+      vendor-managed files.
+    recommendation: >
+      Update the source of generation or vendor configuration instead.
