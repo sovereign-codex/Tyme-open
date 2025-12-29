@@ -245,6 +245,20 @@ jobs:
           # Phase-2: Lattice memory (read-only, delta-only)
           python3 codex/lattice/compute_delta.py
 
+      - name: Update lattice history (Phase-3, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-3: Lattice trend awareness (read-only, observational)
+          python3 codex/lattice/compute_history.py
+
+      - name: Compute lattice trends (Phase-3, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-3: Lattice trend awareness (read-only, observational)
+          python3 codex/lattice/compute_trends.py
+
       - name: Summarize lattice delta (Phase-2, warn-only)
         if: always()
         continue-on-error: true
@@ -305,6 +319,31 @@ jobs:
           PY
           cat lattice_summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Summarize lattice trends (Phase-3, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          trends_path = Path("codex/lattice/trends.json")
+          lines = ["### Lattice trends (Phase-3, warn-only)"]
+          if not trends_path.exists():
+            lines.append("- No lattice trends generated yet.")
+          else:
+            data = json.loads(trends_path.read_text(encoding="utf-8"))
+            rolling = data.get("rolling_average", {})
+            lines.append(f"- Entries: {data.get('entry_count', 0)}")
+            lines.append(f"- Rolling total signals: {rolling.get('total_signals', 0)}")
+            stability = data.get("stability", {})
+            lines.append(f"- Stability: {stability.get('classification', 'n/a')}")
+            drift = (data.get("drift") or {}).get("total_signals", {})
+            lines.append(f"- Drift: {drift.get('pattern', 'n/a')}")
+          Path("lattice_trends_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat lattice_trends_summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload lattice artifacts (Phase-1.5, warn-only)
         if: always()
         continue-on-error: true
@@ -315,7 +354,10 @@ jobs:
             codex/lattice/signals.jsonl
             codex/lattice/index.json
             codex/lattice/delta.json
+            codex/lattice/history.json
+            codex/lattice/trends.json
             codex/lattice/signals.schema.json
             lattice_summary.md
             lattice_delta_summary.md
+            lattice_trends_summary.md
           if-no-files-found: warn
