@@ -36,6 +36,20 @@ Nothing blocks in Tier-7 by design. The output is intended for review context an
 
 To add policies safely, define them in the policy manifest with clear, plain-English predicates, set `simulate_only: true`, and keep scopes and severities conservative. Avoid introducing assumptions that would require enforcement or external data sources. Policies should remain best-effort and resilient to missing inputs.
 
+## Phase-8: External Observability Export (metrics-only, no control)
+
+Phase-8 exports lattice observability state as metrics-only artifacts for external visibility without any control path. It derives read-only metrics from existing lattice artifacts and writes:
+
+- `codex/lattice/metrics.prom` (OpenMetrics/Prometheus text)
+- `codex/lattice/metrics.json` (compact JSON for dashboards)
+- `codex/lattice/metrics_manifest.json` (sources, bounds, and redaction rules)
+
+Inputs are limited to lattice artifacts (`index.json`, `delta.json`, `history.json`, `trends.json`, `canonical_summary.json`, and `annotations.json` for counts only). Labels are bounded, raw narratives are never exported, and no secrets or file paths are included. These exports are strictly “metrics-only, no control” and must never gate workflows.
+
+To consume the metrics:
+- Prometheus/OpenMetrics: scrape or parse `metrics.prom`.
+- JSON dashboards: read `metrics.json` for gauges and labeled counts.
+
 ## What Codex Does Not Control
 
 Codex does not control execution, approvals, or governance decisions. It does not manage repository permissions, deploy pipelines, or merge behavior. It only defines how information is represented and recorded.
