@@ -1,0 +1,100 @@
+{
+  "window_size": 10,
+  "generated_at": null,
+  "entry_count": 0,
+  "rolling_average": {
+    "total_signals": 0.0,
+    "by_severity": {
+      "info": 0.0,
+      "low": 0.0,
+      "medium": 0.0,
+      "high": 0.0
+    },
+    "by_scope": {
+      "guardian": 0.0,
+      "cms": 0.0,
+      "directive": 0.0
+    }
+  },
+  "spikes": {
+    "total_signals": {
+      "latest": 0,
+      "average": 0.0,
+      "delta": 0.0,
+      "threshold": 2.0,
+      "spike": false,
+      "direction": "flat"
+    },
+    "by_severity": {
+      "info": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      },
+      "low": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      },
+      "medium": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      },
+      "high": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      }
+    },
+    "by_scope": {
+      "guardian": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      },
+      "cms": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      },
+      "directive": {
+        "latest": 0,
+        "average": 0.0,
+        "delta": 0.0,
+        "threshold": 2.0,
+        "spike": false,
+        "direction": "flat"
+      }
+    }
+  },
+  "drift": {
+    "total_signals": {
+      "pattern": "insufficient_data",
+      "mean_delta": 0.0,
+      "recent_deltas": []
+    }
+  },
+  "stability": {
+    "classification": "emerging",
+    "reason": "insufficient history"
+  }
+}
