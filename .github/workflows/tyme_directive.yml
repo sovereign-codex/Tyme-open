@@ -385,6 +385,31 @@ jobs:
           PY
           cat lattice_anomalies_summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Summarize lattice annotations (Phase-6, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          annotations_path = Path("codex/lattice/annotations.json")
+          lines = ["### Lattice annotations (Phase-6, warn-only)"]
+          if not annotations_path.exists():
+            lines.append("- No annotations.json present.")
+          else:
+            data = json.loads(annotations_path.read_text(encoding="utf-8"))
+            annotations = data.get("annotations") if isinstance(data, dict) else data
+            if not isinstance(annotations, list) or not annotations:
+              lines.append("- No annotations recorded yet.")
+            else:
+              lines.append(f"- Total annotations: {len(annotations)}")
+              latest = max(item.get("timestamp_utc", "") for item in annotations if isinstance(item, dict))
+              lines.append(f"- Latest annotation: {latest or 'n/a'}")
+          Path("lattice_annotations_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat lattice_annotations_summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload lattice artifacts (Phase-1.5, warn-only)
         if: always()
         continue-on-error: true
@@ -398,9 +423,11 @@ jobs:
             codex/lattice/history.json
             codex/lattice/trends.json
             codex/lattice/anomalies.md
+            codex/lattice/annotations.json
             codex/lattice/signals.schema.json
             lattice_summary.md
             lattice_delta_summary.md
             lattice_trends_summary.md
             lattice_anomalies_summary.md
+            lattice_annotations_summary.md
           if-no-files-found: warn
