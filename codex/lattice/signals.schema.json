@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Codex Lattice Signal Schema",
+  "description": "Phase-1 lattice observability signal. Signals are append-only, non-enforcing, and informational only.",
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "signal_id",
+    "timestamp",
+    "mode",
+    "origin",
+    "scope",
+    "severity"
+  ],
+
+  "properties": {
+    "signal_id": {
+      "type": "string",
+      "description": "Globally unique identifier for this signal instance."
+    },
+
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the signal was emitted."
+    },
+
+    "mode": {
+      "type": "string",
+      "enum": ["observation"],
+      "description": "Execution mode. Phase-1 lattice signals must always be observation-only."
+    },
+
+    "origin": {
+      "type": "object",
+      "description": "Source context for the signal.",
+      "required": ["repository", "workflow"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Repository name emitting the signal."
+        },
+        "workflow": {
+          "type": "string",
+          "description": "Workflow or process name emitting the signal."
+        },
+        "module": {
+          "type": "string",
+          "description": "Optional module or component name."
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "scope": {
+      "type": "string",
+      "enum": ["guardian", "cms", "directive"],
+      "description": "Operational scope of the signal."
+    },
+
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high"],
+      "description": "Observed severity level. Severity has no enforcement implications."
+    },
+
+    "policy_id": {
+      "type": "string",
+      "description": "Optional policy identifier associated with this signal."
+    },
+
+    "message": {
+      "type": "string",
+      "description": "Human-readable summary of the observation."
+    },
+
+    "payload_ref": {
+      "type": "string",
+      "description": "Optional reference or path to related artifacts or reports. Must not contain secrets."
+    }
+  }
+}
