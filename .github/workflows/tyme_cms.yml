@@ -46,6 +46,13 @@ jobs:
         run: |
           python3 backend/cms_bindings.py "${{ github.event.inputs.command }}"
 
+      - name: Emit lattice signal (Phase-1, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-1 lattice wiring: append-only signals.jsonl, no gating/enforcement.
+          python3 codex/lattice/emit_signal.py
+
       - name: Generate directive payload
         id: directive_payload
         env:
@@ -162,3 +169,10 @@ jobs:
           DIRECTIVE_ID: ${{ steps.directive_payload.outputs.directive_id }}
           PREVIOUS_DIRECTIVE_ID: ${{ steps.directive_payload.outputs.previous_directive_id }}
           CHAIN_POSITION: ${{ steps.directive_payload.outputs.chain_position }}
+
+      - name: Index lattice signals (Phase-1, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-1 lattice wiring: derived index.json only, never gates workflow.
+          python3 codex/lattice/index_signals.py
