@@ -266,6 +266,13 @@ jobs:
           # Phase-4: Lattice anomaly narratives (read-only, explanatory)
           python3 codex/lattice/compute_anomalies.py
 
+      - name: Compute canonical lattice summary (Phase-7, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          # Phase-7: Memory compaction & canonical summaries (read-only)
+          python3 codex/lattice/compute_canonical_summary.py
+
       - name: Lattice query snapshot (Phase-5, warn-only)
         if: always()
         continue-on-error: true
@@ -410,6 +417,29 @@ jobs:
           PY
           cat lattice_annotations_summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Summarize canonical lattice memory (Phase-7, warn-only)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary_path = Path("codex/lattice/canonical_summary.json")
+          lines = ["### Canonical lattice summary (Phase-7, warn-only)"]
+          if not summary_path.exists():
+            lines.append("- No canonical summary generated yet.")
+          else:
+            data = json.loads(summary_path.read_text(encoding="utf-8"))
+            horizon = data.get("horizon", {})
+            lines.append(f"- Summary ID: {data.get('summary_id', 'n/a')}")
+            lines.append(f"- Confidence: {data.get('confidence_level', 'n/a')}")
+            lines.append(f"- Runs: {horizon.get('number_of_runs', 0)}")
+            lines.append(f"- Time span: {horizon.get('time_span', 'n/a')}")
+          Path("lattice_canonical_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+          cat lattice_canonical_summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload lattice artifacts (Phase-1.5, warn-only)
         if: always()
         continue-on-error: true
@@ -423,6 +453,8 @@ jobs:
             codex/lattice/history.json
             codex/lattice/trends.json
             codex/lattice/anomalies.md
+            codex/lattice/canonical_summary.json
+            codex/lattice/canonical_summary.md
             codex/lattice/annotations.json
             codex/lattice/signals.schema.json
             lattice_summary.md
@@ -430,4 +462,5 @@ jobs:
             lattice_trends_summary.md
             lattice_anomalies_summary.md
             lattice_annotations_summary.md
+            lattice_canonical_summary.md
           if-no-files-found: warn
